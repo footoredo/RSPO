@@ -119,6 +119,7 @@ class NNBase(nn.Module):
             T = int(x.size(0) / N)
 
             # unflatten
+            # print(x.shape)
             x = x.view(T, N, x.size(1))
 
             # Same deal with masks

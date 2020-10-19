@@ -66,6 +66,16 @@ def get_args():
         default=0.5,
         help='max norm of gradients (default: 0.5)')
     parser.add_argument(
+        '--no-grad-norm-clip',
+        action='store_true',
+        default=False,
+        help='don\'t clip norm of gradients (default: False)')
+    parser.add_argument(
+        '--reward-normalization',
+        action='store_true',
+        default=False,
+        help='do reward normalization (default: False)')
+    parser.add_argument(
         '--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument(
         '--cuda-deterministic',
@@ -77,6 +87,11 @@ def get_args():
         type=int,
         default=16,
         help='how many training CPU processes to use (default: 16)')
+    parser.add_argument(
+        '--num-agents',
+        type=int,
+        default=2,
+        help='number of agents in the environment (default: 2)')
     parser.add_argument(
         '--num-steps',
         type=int,
