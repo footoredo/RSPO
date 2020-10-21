@@ -9,14 +9,23 @@ import multiprocessing as mp
 
 from argparse import Namespace
 
+from ..model import AttentionBase
+
 from .utils import *
 
 
-def get_agent(args, obs_space, act_space):
-    actor_critic = Policy(
-        obs_space.shape,
-        act_space,
-        base_kwargs={'recurrent': args.recurrent_policy})
+def get_agent(args, obs_space, input_structure, act_space, use_attention):
+    if use_attention:
+        actor_critic = Policy(
+            obs_space.shape,
+            act_space,
+            AttentionBase,
+            base_kwargs={'recurrent': args.recurrent_policy, 'input_structure': input_structure})
+    else:
+        actor_critic = Policy(
+            obs_space.shape,
+            act_space,
+            base_kwargs={'recurrent': args.recurrent_policy})
 
     if args.algo == 'a2c':
         agent = algo.A2C_ACKTR(
@@ -47,13 +56,18 @@ def get_agent(args, obs_space, act_space):
     return actor_critic, agent
 
 
+def true_func(n_iter):
+    return True
+
+
 class Agent(mp.Process):
-    def __init__(self, agent_id, agent_name, logger, args: Namespace, obs_space, act_space, main_conn, obs_shm, buffer_start,
-                 buffer_end, act_shm, obs_locks,
-                 act_locks):
+    def __init__(self, agent_id, agent_name, thread_limit, logger, args: Namespace, obs_space, input_structure,
+                 act_space, main_conn, obs_shm, buffer_start, buffer_end, act_shm, obs_locks, act_locks,
+                 use_attention=False, train=true_func):
         super(Agent, self).__init__()
         self.agent_id = agent_id
         self.agent_name = agent_name
+        self.thread_limit = thread_limit
         self.logger = logger
 
         self.args = args
@@ -65,6 +79,7 @@ class Agent(mp.Process):
         self.num_updates = args.num_env_steps // args.num_steps // args.num_processes
 
         self.obs_space = obs_space
+        self.input_structure = input_structure
         self.act_space = act_space
 
         self.main_conn = main_conn
@@ -75,7 +90,8 @@ class Agent(mp.Process):
         self.obs_locks = obs_locks
         self.act_locks = act_locks
 
-        self.policy = None
+        self.use_attention = use_attention
+        self.train = train
 
         if args.gail:
             raise ValueError("gail is not supported")
@@ -98,10 +114,12 @@ class Agent(mp.Process):
         self.act_shm.buf[i_env * self.num_agents + self.agent_id] = act
 
     def run(self):
+        if self.thread_limit is not None:
+            torch.set_num_threads(self.thread_limit)
         args = self.args
         torch.manual_seed(self.seed)
         # self.log(self.obs_space)
-        actor_critic, agent = get_agent(self.args, self.obs_space, self.act_space)
+        actor_critic, agent = get_agent(self.args, self.obs_space, self.input_structure, self.act_space, self.use_attention)
         rollouts = RolloutStorage(self.num_steps, self.num_envs,
                                   self.obs_space.shape, self.act_space,
                                   actor_critic.recurrent_hidden_state_size)
@@ -114,6 +132,9 @@ class Agent(mp.Process):
         # self.log("step {} - received {}".format(0, obs))
         # self.log(obs.shape)
         rollouts.obs[0].copy_(obs)
+        statistics = dict(reward=[], grad_norm=[])
+        sum_reward = 0.
+        last_update_iter = 0
 
         for it in range(self.num_updates):
             # self.log("iter: {}".format(it))
@@ -132,6 +153,8 @@ class Agent(mp.Process):
                 release_all_locks(self.act_locks)
 
                 obs, reward, done = self.get_obs()
+                # print(reward)
+                sum_reward += reward.detach().numpy().sum()
                 # self.log("step {} - received {}, {}, {}".format(it * self.num_steps + step + 1, obs, reward, done))
                 # self.log("acquire act locks")
                 # acquire_all_locks(self.act_locks)
@@ -150,12 +173,20 @@ class Agent(mp.Process):
             rollouts.compute_returns(next_value, args.use_gae, args.gamma,
                                      args.gae_lambda, args.use_proper_time_limits)
 
-            value_loss, action_loss, dist_entropy = agent.update(rollouts)
-            self.log("Update #{}, value_loss {}, action_loss {}, dist_entropy {}".format(it, value_loss, action_loss, dist_entropy))
+            if self.train(it):
+                value_loss, action_loss, dist_entropy, grad_norm = agent.update(rollouts)
+                self.log("Update #{}, value_loss {}, action_loss {}, dist_entropy {}, grad_norm {}"
+                         .format(it, value_loss, action_loss, dist_entropy, grad_norm))
+                statistics["grad_norm"].append((it, grad_norm))
+
+            statistics["reward"].append((it, sum_reward - (it - last_update_iter)))
+            last_update_iter = it
+            sum_reward = 0.
 
             rollouts.after_update()
 
         recurrent_hidden_states = torch.zeros((1, actor_critic.recurrent_hidden_state_size))
+        self.main_conn.send(statistics)
         # print(recurrent_hidden_states)
         while True:
             command = self.main_conn.recv()

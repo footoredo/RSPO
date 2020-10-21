@@ -76,6 +76,11 @@ def get_args():
         default=False,
         help='do reward normalization (default: False)')
     parser.add_argument(
+        '--use-attention',
+        action='store_true',
+        default=False,
+        help='use attention mechanism in policy (default: False)')
+    parser.add_argument(
         '--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument(
         '--cuda-deterministic',

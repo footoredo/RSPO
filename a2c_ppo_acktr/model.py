@@ -76,7 +76,7 @@ class Policy(nn.Module):
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()
 
-        return value, action_log_probs, dist_entropy, rnn_hxs
+        return value, action_log_probs, dist_entropy, rnn_hxs, dist
 
 
 class NNBase(nn.Module):
@@ -167,6 +167,125 @@ class NNBase(nn.Module):
         return x, hxs
 
 
+class AttentionTransform(nn.Module):
+    def __init__(self, num_input, hidden_size):
+        super(AttentionTransform, self).__init__()
+        self.k = nn.Linear(num_input, hidden_size)
+        self.v = nn.Linear(num_input, hidden_size)
+
+    def forward(self, _input):
+        k = self.k(_input)
+        v = self.v(_input)
+        return k, v
+
+
+class DenseLayer(nn.Module):
+    def __init__(self, num_input, hidden_size):
+        super(DenseLayer, self).__init__()
+        self.linear = nn.Linear(num_input, hidden_size)
+        self.activation = nn.Tanh()
+        self.layer_norm = nn.LayerNorm(hidden_size)
+
+    def forward(self, x):
+        return self.layer_normself.activation(self.linear(x))
+
+
+def make_dense(num_input, hidden_size):
+    return nn.Sequential(nn.Linear(num_input, hidden_size), nn.Tanh(), nn.LayerNorm(hidden_size))
+
+
+class AttentionBase(NNBase):
+    def __init__(self, num_input, input_structure, recurrent=False, hidden_size=64, num_heads=4):
+        super(AttentionBase, self).__init__(recurrent, hidden_size, hidden_size)
+
+        self._input_structure = input_structure
+        self._hidden_size = hidden_size
+        self._num_heads = num_heads
+
+        self.entity_index = dict()
+        self.n_entities = 0
+        self.entity_num_input = []
+        transforms = []
+
+        # init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+        #                        constant_(x, 0), np.sqrt(2))
+
+        self_num_input = 0
+        self.self_input_part = (0, 0)
+
+        sum_length = 0
+        for name, length in input_structure:
+            if name == "self":
+                self_num_input = length
+                self.self_input_part = (sum_length, sum_length + length)
+            else:
+                if name not in self.entity_index:
+                    self.entity_index[name] = self.n_entities
+                    self.entity_num_input.append(length)
+                    self.n_entities += 1
+            sum_length += length
+
+        for num_input in self.entity_num_input:
+            transforms.append(make_dense(num_input + self_num_input, hidden_size))
+
+        self.transforms = nn.ModuleList(transforms)
+        self.q = nn.Linear(hidden_size, hidden_size)
+        self.k = nn.Linear(hidden_size, hidden_size)
+        self.v = nn.Linear(hidden_size, hidden_size)
+
+        self.attention_dense1 = make_dense(hidden_size, hidden_size)
+        self.attention_dense2 = make_dense(hidden_size + self_num_input, hidden_size)
+
+        self.actor = nn.Sequential(
+            make_dense(hidden_size, hidden_size),
+            make_dense(hidden_size, hidden_size))
+
+        self.critic = nn.Sequential(
+            make_dense(hidden_size, hidden_size),
+            make_dense(hidden_size, hidden_size))
+
+        self.critic_linear = nn.Linear(hidden_size, 1)
+
+        self.train()
+
+    def forward(self, inputs, rnn_hxs, masks):
+        self_input = inputs[:, self.self_input_part[0]: self.self_input_part[1]]
+        sum_length = 0
+        entity_inputs = [[] for _ in range(self.n_entities)]
+        hs = []
+        for name, length in self._input_structure:
+            if name != "self":
+                entity_inputs[self.entity_index[name]].append(
+                    torch.cat([self_input, inputs[:, sum_length: sum_length + length]], dim=1))
+            sum_length += length
+        for i in range(self.n_entities):
+            _inputs = torch.stack(entity_inputs[i], dim=1)
+            h = self.transforms[i](_inputs)
+            hs.append(h)
+        x = torch.cat(hs, dim=1)
+        bs = x.size()[0]
+        n = x.size()[1]
+        nh = self._num_heads
+        hs = self._hidden_size // nh
+        q = self.q(x).view(bs, n, nh, hs).transpose(1, 2).reshape(-1, n, hs)
+        k = self.k(x).view(bs, n, nh, hs).transpose(1, 2).reshape(-1, n, hs)
+        v = self.v(x).view(bs, n, nh, hs).transpose(1, 2).reshape(-1, n, hs)
+
+        w = F.softmax(torch.bmm(q, k.transpose(1, 2)) / np.sqrt(hs), dim=-1)
+        z = torch.bmm(w, v).view(bs, nh, n, hs).transpose(1, 2).reshape(bs, n, nh * hs)
+        y = self.attention_dense1(z) + x
+        y = torch.mean(y, dim=1)
+        y = self.attention_dense2(torch.cat([y, self_input], dim=-1))
+
+        if self.is_recurrent:
+            y, rnn_hxs = self._forward_gru(y, rnn_hxs, masks)
+
+        hidden_critic = self.critic(y)
+        hidden_actor = self.actor(y)
+
+        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs
+
+
 class CNNBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=512):
         super(CNNBase, self).__init__(recurrent, hidden_size, hidden_size)
@@ -228,3 +347,30 @@ class MLPBase(NNBase):
         hidden_actor = self.actor(x)
 
         return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs
+
+
+if __name__ == "__main__":
+    import time
+    from pettingzoo.mpe import simple_tag_v1
+    env = simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=2, max_frames=50)
+
+    mlp = MLPBase(env.observation_spaces["agent_0"].shape[0])
+    att = AttentionBase(env.observation_spaces["agent_0"].shape[0], env.input_structures["agent_0"])
+
+    inputs = torch.randn((64, env.observation_spaces["agent_0"].shape[0]))
+
+    st = time.time()
+    for _ in range(1000):
+        mlp.zero_grad()
+        c, _, _ = mlp(inputs, None, None)
+        c.mean().backward(create_graph=True)
+    print("mlp:", time.time() - st)
+
+    torch.set_num_threads(1)
+    st = time.time()
+    # while True:
+    for _ in range(1000):
+        att.zero_grad()
+        c, _, _ = att(inputs, None, None)
+        c.mean().backward(create_graph=True)
+    print("att:", time.time() - st)
