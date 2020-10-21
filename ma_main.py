@@ -31,6 +31,8 @@ import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from a2c_ppo_acktr.multi_agent.utils import *
+
 import logging
 import multiprocessing as mp
 
@@ -46,22 +48,22 @@ def train_in_turn(n_agents, i, n_iter):
 
 
 def plot(statistics, keyword, agents):
-    assert len(statistics) == len(agents)
-    n_agents = len(agents)
     iters = []
     values = []
     names = []
 
-    for i in range(n_agents):
-        s = statistics[i][keyword]
+    for agent in agents:
+        s = statistics[agent][keyword]
         for it, v in s:
             iters.append(it)
             values.append(v)
-            names.append(agents[i])
+            names.append(agent)
 
-    df = pd.DataFrame(dict(iter=iters, value=values, agent=names))
-
-    sns.lineplot(x="iter", y="value", hue="agent", data=df)
+    df = pd.DataFrame(dict(iteration=iters, value=values, agent=names))
+    fig, ax = plt.subplots()
+    sns.lineplot(x="iteration", y="value", hue="agent", data=df, ax=ax)
+    ax.set_title(keyword)
+    plt.tight_layout()
     plt.show()
 
 
@@ -80,7 +82,9 @@ def main():
     obs_locks = []
     act_locks = []
 
-    # json.dump(vars(args), open("configs/simple_tag.json", "w"))
+    from datetime import datetime
+    save_dir = mkdir2(args.save_dir, datetime.now().isoformat())
+    json.dump(vars(args), open(os.path.join(save_dir, "config.json"), "w"))
 
     for i in range(num_envs):
         _obs_locks = []
@@ -110,7 +114,7 @@ def main():
     act_shm = shared_memory.SharedMemory(create=True, size=num_envs * num_agents)
 
     input_structures = env.input_structures
-    print(input_structures)
+    print("input_structures:", input_structures)
 
     # print(len(env.agents))
     for i, agent in enumerate(env.agents):
@@ -124,6 +128,7 @@ def main():
                    obs_shm=obs_shm, buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
                    obs_locks=[locks[i] for locks in obs_locks], act_shm=act_shm,
                    act_locks=[locks[i] for locks in act_locks], use_attention=args.use_attention,
+                   save_dir=save_dir,
                    train=partial(train_in_turn, args.num_agents, i))
         agents.append(ap)
         ap.start()
@@ -150,12 +155,18 @@ def main():
     act_shm.close()
     act_shm.unlink()
 
-    statistics = []
-    for i in range(num_agents):
-        statistics.append(main_agent_conns[i].recv())
+    statistics = dict()
+    for i, agent in enumerate(env.agents):
+        statistics[agent] = main_agent_conns[i].recv()
+
+    import joblib
+    joblib.dump(statistics, os.path.join(save_dir, "statistics.obj"))
 
     plot(statistics, "reward", env.agents)
     plot(statistics, "grad_norm", env.agents)
+    plot(statistics, "value_loss", env.agents)
+    plot(statistics, "action_loss", env.agents)
+    plot(statistics, "dist_entropy", env.agents)
 
     obs = env.reset()
     dones = {agent: False for agent in env.agents}

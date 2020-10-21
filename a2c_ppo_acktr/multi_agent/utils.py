@@ -1,5 +1,16 @@
 import numpy as np
 import torch
+import os
+import pathlib
+
+
+def mkdir(path):
+    pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def mkdir2(path1, path2):
+    return mkdir(os.path.join(path1, path2))
 
 
 def ts(ar):

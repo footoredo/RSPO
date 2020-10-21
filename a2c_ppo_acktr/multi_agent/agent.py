@@ -63,7 +63,7 @@ def true_func(n_iter):
 class Agent(mp.Process):
     def __init__(self, agent_id, agent_name, thread_limit, logger, args: Namespace, obs_space, input_structure,
                  act_space, main_conn, obs_shm, buffer_start, buffer_end, act_shm, obs_locks, act_locks,
-                 use_attention=False, train=true_func):
+                 use_attention=False, save_dir=None, train=true_func):
         super(Agent, self).__init__()
         self.agent_id = agent_id
         self.agent_name = agent_name
@@ -77,6 +77,8 @@ class Agent(mp.Process):
         self.num_agents = args.num_agents
         self.batch_size = self.num_steps * self.num_envs
         self.num_updates = args.num_env_steps // args.num_steps // args.num_processes
+        self.save_interval = args.save_interval
+        self.save_dir = mkdir2(save_dir or args.save_dir, agent_name)
 
         self.obs_space = obs_space
         self.input_structure = input_structure
@@ -132,9 +134,10 @@ class Agent(mp.Process):
         # self.log("step {} - received {}".format(0, obs))
         # self.log(obs.shape)
         rollouts.obs[0].copy_(obs)
-        statistics = dict(reward=[], grad_norm=[])
+        statistics = dict(reward=[], grad_norm=[], value_loss=[], action_loss=[], dist_entropy=[])
         sum_reward = 0.
-        last_update_iter = 0
+        # last_update_iter = -1
+        update_counter = 0
 
         for it in range(self.num_updates):
             # self.log("iter: {}".format(it))
@@ -177,10 +180,18 @@ class Agent(mp.Process):
                 value_loss, action_loss, dist_entropy, grad_norm = agent.update(rollouts)
                 self.log("Update #{}, value_loss {}, action_loss {}, dist_entropy {}, grad_norm {}"
                          .format(it, value_loss, action_loss, dist_entropy, grad_norm))
+                statistics["value_loss"].append((it, value_loss))
+                statistics["action_loss"].append((it, action_loss))
+                statistics["dist_entropy"].append((it, dist_entropy))
                 statistics["grad_norm"].append((it, grad_norm))
+                update_counter += 1
+                if self.save_interval > 0 and update_counter % self.save_interval == 0:
+                    current_save_dir = mkdir2(self.save_dir, "update-{}".format(update_counter))
+                    torch.save(actor_critic.state_dict(),
+                               os.path.join(current_save_dir, "model.obj"))
 
-            statistics["reward"].append((it, sum_reward - (it - last_update_iter)))
-            last_update_iter = it
+            statistics["reward"].append((it, sum_reward / self.num_steps / self.num_envs))
+            # last_update_iter = it
             sum_reward = 0.
 
             rollouts.after_update()
