@@ -4,6 +4,32 @@ import os
 import pathlib
 
 
+def plot_statistics(statistics, keyword):
+    import seaborn as sns
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    iters = []
+    values = []
+    names = []
+
+    agents = list(statistics.keys())
+
+    for agent in agents:
+        s = statistics[agent][keyword]
+        for it, v in s:
+            iters.append(it)
+            values.append(v)
+            names.append(agent)
+
+    df = pd.DataFrame(dict(iteration=iters, value=values, agent=names))
+    fig, ax = plt.subplots()
+    sns.lineplot(x="iteration", y="value", hue="agent", data=df, ax=ax)
+    ax.set_title(keyword)
+    plt.tight_layout()
+    plt.show()
+
+
 def mkdir(path):
     pathlib.Path(path).mkdir(parents=True, exist_ok=True)
     return path

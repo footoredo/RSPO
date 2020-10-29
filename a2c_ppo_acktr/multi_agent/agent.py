@@ -196,6 +196,8 @@ class Agent(mp.Process):
 
             rollouts.after_update()
 
+        torch.save(actor_critic.state_dict(), os.path.join(self.save_dir, "model.obj"))
+
         recurrent_hidden_states = torch.zeros((1, actor_critic.recurrent_hidden_state_size))
         self.main_conn.send(statistics)
         # print(recurrent_hidden_states)

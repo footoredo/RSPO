@@ -27,10 +27,6 @@ from a2c_ppo_acktr.multi_agent import Agent, Environment
 
 from pettingzoo.mpe import simple_tag_v1
 
-import seaborn as sns
-import pandas as pd
-import matplotlib.pyplot as plt
-
 from a2c_ppo_acktr.multi_agent.utils import *
 
 import logging
@@ -40,31 +36,11 @@ info = mp.get_logger().info
 
 
 def make_env():
-    return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=50)
+    return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=32)
 
 
 def train_in_turn(n_agents, i, n_iter):
     return n_iter % n_agents == i
-
-
-def plot(statistics, keyword, agents):
-    iters = []
-    values = []
-    names = []
-
-    for agent in agents:
-        s = statistics[agent][keyword]
-        for it, v in s:
-            iters.append(it)
-            values.append(v)
-            names.append(agent)
-
-    df = pd.DataFrame(dict(iteration=iters, value=values, agent=names))
-    fig, ax = plt.subplots()
-    sns.lineplot(x="iteration", y="value", hue="agent", data=df, ax=ax)
-    ax.set_title(keyword)
-    plt.tight_layout()
-    plt.show()
 
 
 def main():
@@ -162,11 +138,11 @@ def main():
     import joblib
     joblib.dump(statistics, os.path.join(save_dir, "statistics.obj"))
 
-    plot(statistics, "reward", env.agents)
-    plot(statistics, "grad_norm", env.agents)
-    plot(statistics, "value_loss", env.agents)
-    plot(statistics, "action_loss", env.agents)
-    plot(statistics, "dist_entropy", env.agents)
+    plot_statistics(statistics, "reward")
+    plot_statistics(statistics, "grad_norm")
+    plot_statistics(statistics, "value_loss")
+    plot_statistics(statistics, "action_loss")
+    plot_statistics(statistics, "dist_entropy")
 
     obs = env.reset()
     dones = {agent: False for agent in env.agents}
