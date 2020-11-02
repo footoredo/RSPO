@@ -1,0 +1,305 @@
+import os
+import torch
+import torch.optim as optim
+import torch.nn as nn
+import numpy as np
+from a2c_ppo_acktr.utils import magic_box
+from a2c_ppo_acktr.multi_agent.utils import mkdir2
+
+
+class LoadedDiCE():
+    def __init__(self,
+                 actor_critic,
+                 dice_epoch,
+                 num_mini_batch,
+                 value_loss_coef,
+                 entropy_coef,
+                 dice_lambda,
+                 episode_steps,
+                 task,  # "MIS", "eigen", None
+                 clip_param=0.2,
+                 max_grad_norm=0.5,
+                 clip_grad_norm=True,
+                 lr=None,
+                 eps=None,
+                 use_clipped_value_loss=True,
+                 save_dir="/tmp/loaded_dice"):
+
+        self.actor_critic = actor_critic
+
+        self.epoch = dice_epoch
+        self.num_mini_batch = num_mini_batch
+        self.value_loss_coef = value_loss_coef
+        self.entropy_coef = entropy_coef
+        self.dice_lambda = dice_lambda
+        self.episode_steps = episode_steps
+        self.clip_param = clip_param
+        self.max_grad_norm = max_grad_norm
+        self.clip_grad_norm = clip_grad_norm
+        self.use_clipped_value_loss = use_clipped_value_loss
+        self.task = task
+        self.save_dir = save_dir
+
+        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=lr, eps=eps)
+
+        self.evec = None
+        self.update_counter = 0
+
+    def update(self, rollouts):
+        self.update_counter += 1
+        advantages = rollouts.returns[:-1] #- rollouts.value_preds[:-1]
+        advantages = (advantages - advantages.mean()) / (
+                advantages.std() + 1e-5)
+
+        value_loss_epoch = 0
+        action_loss_epoch = 0
+        dist_entropy_epoch = 0
+        grad_norm_epoch = 0
+
+        def flat_view(data):
+            return data.view(-1, *data.size()[2:])
+
+        def calc_grad(f, create_graph=False):
+            return torch.autograd.grad(f, self.actor_critic.parameters(), allow_unused=True, create_graph=create_graph)
+
+        def flat_grad(grad):
+            grads = []
+            for gg in grad:
+                if gg is not None:
+                    grads.append(gg.reshape(-1))
+            return torch.cat(grads)
+
+        def hv(fg, vec):
+            return flat_grad(calc_grad(fg @ vec, True)).detach()
+
+        def power_method(gradients):
+            fg = flat_grad(gradients)
+            delta_matrix = torch.zeros((fg.size()[0], fg.size()[0]))
+
+            def _hv(vec, use_dm=True):
+                v1 = hv(fg, vec)
+                if use_dm:
+                    v1 += delta_matrix @ vec
+                return v1
+
+            evals = []
+            evecs = []
+
+            while True:
+                v = torch.rand(fg.size())
+                v = v / v.norm(2)
+                for i in range(200):
+                    v = _hv(v)
+                    v = v / v.norm(2)
+                nv = (_hv(v, False) / v).detach().numpy()
+                print(nv)
+                print(nv.std())
+                if nv.std() < 0.1:
+                    eval = nv.mean()
+                    evec = v.detach().numpy().reshape(-1, 1)
+                    evals.append(eval)
+                    evecs.append(evec)
+                    # if len(evecs) > 1:
+                    #     for i in range(len(evecs) - 1):
+                    #         print(evecs[i].T @ evec)
+                    print("lambda_{}: {}".format(len(evals), eval))
+                    delta_matrix -= eval * (evec @ evec.T)
+                else:
+                    break
+
+            # print(evals)
+            # print(evecs)
+
+        def lanczos_method(gradients):
+            fg = flat_grad(gradients)
+            n = fg.size()[0]
+            fg = fg.view(1, n)
+            # print(fg)
+
+            v = torch.randn((n, 1))
+            v /= v.norm(2)
+            vs = [v]
+            wp = hv(fg, v).view((n, 1))
+            a = wp.transpose(0, 1) @ v
+            w = wp - a * v
+
+            eps = 1e-3
+            m = 200
+            T = np.zeros((m, m))
+            T[0, 0] = a
+
+            for j in range(1, m):
+                b = w.norm(2)
+                T[j - 1, j] = b
+                T[j, j - 1] = b
+                lv = v
+                if b > eps or b < -eps:
+                    v = w / b
+                else:
+                    print("resample!")
+                    v = torch.randn((n, 1))
+                    for vv in vs:
+                        v -= (v.transpose(0, 1) @ vv) * vv
+                    v /= v.norm(2)
+                wp = hv(fg, v).view((n, 1))
+                a = wp.transpose(0, 1) @ v
+                w = wp - a * v - b * lv
+
+                # dv = torch.zeros_like(v)
+                # for q in vs:
+                #     # print(v.T @ q)
+                #     dv += (v.T @ q) * q
+                # v -= dv
+
+                vs.append(v)
+                # print(a, b)
+
+                T[j, j] = a
+
+            evals, evecs = np.linalg.eigh(T)
+
+            V = torch.cat(vs, 1).detach().numpy()
+            # print(V.shape)
+            qs = []
+            new_evals = []
+            new_evecs = []
+            for i in range(m):
+                z = V @ evecs[:, i]
+
+                test = hv(fg, torch.tensor(z).float()).numpy() / z / evals[i] - 1
+                if np.linalg.norm(test) < 0.1:
+                    # return evals[i], z
+                    orth = 0.
+                    for q in qs:
+                        orth = max(orth, np.abs(z.T @ q))
+
+                    if orth < 1:
+                        qs.append(z)
+                        new_evals.append(evals[i])
+                        new_evecs.append(z)
+
+                        # print(z.shape, z)
+                        # print(evals[i], hv(fg, torch.tensor(z).float()).numpy() / z)
+                    # else:
+                    #     print(orth)
+            return new_evals, new_evecs
+
+        for e in range(self.epoch):
+            if self.actor_critic.is_recurrent:
+                data_generator = rollouts.recurrent_generator(
+                    advantages, self.num_mini_batch, None, self.episode_steps)
+            else:
+                data_generator = rollouts.feed_forward_generator(
+                    advantages, self.num_mini_batch, None, self.episode_steps)
+
+            reward = 0.
+            for sample in data_generator:
+                obs_batch, recurrent_hidden_states_batch, actions_batch, \
+                   value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
+                        adv_targ = sample
+                # print(obs_batch[0], actions_batch[0], adv_targ[0])
+
+                values, action_log_probs, dist_entropy, _, _ = self.actor_critic.evaluate_actions(
+                    flat_view(obs_batch), flat_view(recurrent_hidden_states_batch), flat_view(masks_batch),
+                    flat_view(actions_batch))
+
+                # print("obs:", obs_batch[0, 0], obs_batch[0, 1])
+                # print(actions_batch.size())
+                # print("act:", actions_batch[0, 0])
+                # print(action_log_probs.size())
+                action_log_probs = action_log_probs.reshape(old_action_log_probs_batch.size())
+
+                empty_mask = (1 - masks_batch).type(torch.ByteTensor)
+                # print(action_log_probs.size(), masks_batch.size())
+                action_log_probs[empty_mask] = 1.0
+
+                weighted_cumsum = torch.zeros_like(action_log_probs)
+                weighted_cumsum[:, 0] = action_log_probs[:, 0]
+                for t in range(1, action_log_probs.size()[1]):
+                    weighted_cumsum[:, t] = self.dice_lambda * weighted_cumsum[:, t - 1] + action_log_probs[:, t]
+                deps_exclusive = weighted_cumsum - action_log_probs
+                full_deps = magic_box(weighted_cumsum) - magic_box(deps_exclusive)
+
+                action_loss = -(adv_targ * full_deps).mean()
+                # print(action_loss.size())
+
+                if self.use_clipped_value_loss:
+                    values = values.view(value_preds_batch.size())
+                    value_pred_clipped = value_preds_batch + \
+                        (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+                    value_losses = (values - return_batch).pow(2)
+                    value_losses_clipped = (
+                        value_pred_clipped - return_batch).pow(2)
+                    value_loss = 0.5 * torch.max(value_losses,
+                                                 value_losses_clipped).mean()
+                else:
+                    value_loss = 0.5 * (return_batch - values).pow(2).mean()
+                # print(value_loss.size())
+
+                gradients = calc_grad(action_loss, create_graph=True)
+                reward += return_batch[:, 0].mean().item()
+                # print("reward:", reward)
+
+                total_norm = 0.
+                for g in gradients:
+                    if g is not None:
+                        param_norm = g.norm(2)
+                        total_norm += param_norm ** 2
+                total_norm = total_norm ** (1. / 2)
+                grad_norm_epoch += total_norm.item()
+
+                if self.task == "MIS":
+                    self.optimizer.zero_grad()
+                    (value_loss * self.value_loss_coef + total_norm -
+                     dist_entropy * self.entropy_coef).backward()
+
+                    self.optimizer.step()
+                elif self.task == "eigen":
+                    # lanczos_method(gradients)
+                    evals, evecs = lanczos_method(gradients)
+                    evals = np.array(evals)
+                    evecs = np.array(evecs)
+                    import joblib
+                    joblib.dump((evals, evecs), os.path.join(mkdir2(self.save_dir, "update-{}".format(self.update_counter)), "eigen.data"))
+
+                        # print(eval, evec)
+                        # self.evecs = evec
+                    # test_vec = hv(flat_grad(gradients), torch.tensor(self.evec).float()).detach().numpy() / self.evec
+                    # random_vec = np.random.randn(*self.evec.shape)
+                    # random_vec /= np.linalg.norm(random_vec)
+                    # test_vec2 = hv(flat_grad(gradients), torch.tensor(random_vec).float()).detach().numpy() / random_vec
+                    # print(np.std(test_vec), np.std(test_vec2))
+
+                    # s = 0
+                    # with torch.no_grad():
+                    #     for p, g in zip(self.actor_critic.parameters(), gradients):
+                    #         if g is not None:
+                    #             length = g.view(-1).size()[0]
+                    #             p.data += torch.tensor(self.evec[s:s + length].reshape(p.data.size())).float()
+                    #             s += length
+                else:
+                    self.optimizer.zero_grad()
+                    (value_loss * self.value_loss_coef + action_loss -
+                     dist_entropy * self.entropy_coef).backward()
+
+                    if self.clip_grad_norm:
+                        nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
+                                                 self.max_grad_norm)
+
+                    self.optimizer.step()
+
+                value_loss_epoch += value_loss.item()
+                action_loss_epoch += action_loss.item()
+                dist_entropy_epoch += dist_entropy.item()
+
+            if e == 0:
+                print("reward:", reward / self.num_mini_batch)
+
+        num_updates = self.epoch * self.num_mini_batch
+
+        value_loss_epoch /= num_updates
+        action_loss_epoch /= num_updates
+        dist_entropy_epoch /= num_updates
+        grad_norm_epoch /= num_updates
+
+        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch

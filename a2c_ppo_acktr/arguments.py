@@ -51,6 +51,11 @@ def get_args():
         default=0.95,
         help='gae lambda parameter (default: 0.95)')
     parser.add_argument(
+        '--dice-lambda',
+        type=float,
+        default=0.95,
+        help='Loaded DiCE lambda parameter (default: 0.95)')
+    parser.add_argument(
         '--entropy-coef',
         type=float,
         default=0.01,
@@ -108,6 +113,11 @@ def get_args():
         default=4,
         help='number of ppo epochs (default: 4)')
     parser.add_argument(
+        '--dice-epoch',
+        type=int,
+        default=4,
+        help='number of dice epochs (default: 4)')
+    parser.add_argument(
         '--num-mini-batch',
         type=int,
         default=32,
@@ -138,6 +148,10 @@ def get_args():
         default=10e6,
         help='number of environment steps to train (default: 10e6)')
     parser.add_argument(
+        '--episode-steps',
+        type=int,
+        help='number of steps per episode')
+    parser.add_argument(
         '--env-name',
         default='PongNoFrameskip-v4',
         help='environment to train on (default: PongNoFrameskip-v4)')
@@ -148,7 +162,17 @@ def get_args():
     parser.add_argument(
         '--save-dir',
         default='./trained_models/',
-        help='directory to save agent logs (default: ./trained_models/)')
+        help='directory to save data (default: ./trained_models/)')
+    parser.add_argument(
+        '--load-dir',
+        help='directory to load model')
+    parser.add_argument(
+        '--load-step',
+        type=int,
+        help='step to load model')
+    parser.add_argument(
+        '--dice-task',
+        help='task for dice')
     parser.add_argument(
         '--no-cuda',
         action='store_true',
@@ -173,9 +197,9 @@ def get_args():
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    assert args.algo in ['a2c', 'ppo', 'acktr']
+    assert args.algo in ['a2c', 'ppo', 'acktr', 'loaded-dice']
     if args.recurrent_policy:
-        assert args.algo in ['a2c', 'ppo'], \
+        assert args.algo in ['a2c', 'ppo', 'loaded-dice'], \
             'Recurrent policy is not implemented for ACKTR'
 
     return args

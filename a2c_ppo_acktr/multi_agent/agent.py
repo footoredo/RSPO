@@ -14,7 +14,7 @@ from ..model import AttentionBase
 from .utils import *
 
 
-def get_agent(args, obs_space, input_structure, act_space, use_attention):
+def get_agent(args, obs_space, input_structure, act_space, use_attention, save_dir):
     if use_attention:
         actor_critic = Policy(
             obs_space.shape,
@@ -51,6 +51,20 @@ def get_agent(args, obs_space, input_structure, act_space, use_attention):
     elif args.algo == 'acktr':
         agent = algo.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
+    elif args.algo == 'loaded-dice':
+        agent = algo.LoadedDiCE(
+            actor_critic,
+            args.dice_epoch,
+            args.num_mini_batch,
+            args.value_loss_coef,
+            args.entropy_coef,
+            args.dice_lambda,
+            args.episode_steps,
+            args.dice_task,
+            lr=args.lr,
+            eps=args.eps,
+            save_dir=save_dir
+        )
     else:
         raise ValueError("algo {} not supported".format(args.algo))
     return actor_critic, agent
@@ -119,9 +133,20 @@ class Agent(mp.Process):
         if self.thread_limit is not None:
             torch.set_num_threads(self.thread_limit)
         args = self.args
+        use_dice = args.algo == "loaded-dice"
+        # dice_lambda = args.dice_lambda if use_dice else None
         torch.manual_seed(self.seed)
         # self.log(self.obs_space)
-        actor_critic, agent = get_agent(self.args, self.obs_space, self.input_structure, self.act_space, self.use_attention)
+        actor_critic, agent = get_agent(self.args, self.obs_space, self.input_structure, self.act_space,
+                                        self.use_attention, self.save_dir)
+        # print(self.num_steps)
+        if args.load_dir is not None and args.load_step is not None:
+            self.log("Loading model from {}".format(args.load_dir))
+            actor_critic.load_state_dict(torch.load(os.path.join(args.load_dir, self.agent_name,
+                                                                 "update-{}".format(args.load_step), "model.obj")))
+            self.log("Done.")
+            # while True:
+
         rollouts = RolloutStorage(self.num_steps, self.num_envs,
                                   self.obs_space.shape, self.act_space,
                                   actor_critic.recurrent_hidden_state_size)
@@ -190,7 +215,7 @@ class Agent(mp.Process):
                     torch.save(actor_critic.state_dict(),
                                os.path.join(current_save_dir, "model.obj"))
 
-            statistics["reward"].append((it, sum_reward / self.num_steps / self.num_envs))
+            statistics["reward"].append((it, sum_reward / self.num_steps / self.num_envs * args.episode_steps))
             # last_update_iter = it
             sum_reward = 0.
 

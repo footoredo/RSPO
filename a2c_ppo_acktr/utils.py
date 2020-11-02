@@ -6,6 +6,11 @@ import torch.nn as nn
 
 # from a2c_ppo_acktr.envs import VecNormalize
 
+# Magic box function for DiCE
+def magic_box(x):
+    """Magic Box Operator. x are log-probabilities"""
+    return torch.exp(x - x.detach())
+
 
 # Get a render function
 def get_render_func(venv):

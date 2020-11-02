@@ -25,7 +25,6 @@ from functools import partial
 
 from a2c_ppo_acktr.multi_agent import Agent, Environment
 
-from pettingzoo.mpe import simple_tag_v1
 
 from a2c_ppo_acktr.multi_agent.utils import *
 
@@ -35,8 +34,15 @@ import multiprocessing as mp
 info = mp.get_logger().info
 
 
-def make_env():
-    return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=32)
+def make_env(env_name, steps):
+    if steps is None:
+        steps = 32
+    if env_name == "simple-tag":
+        from pettingzoo.mpe import simple_tag_v1
+        return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=steps - 3)
+    elif env_name == "simple":
+        from pettingzoo.mpe import simple_v1
+        return simple_v1.parallel_env(num_targets=2, max_frames=steps - 3)
 
 
 def train_in_turn(n_agents, i, n_iter):
@@ -73,7 +79,8 @@ def main():
         obs_locks.append(_obs_locks)
         act_locks.append(_act_locks)
 
-    env = make_env()
+    _make_env = partial(make_env, args.env_name, args.episode_steps)
+    env = _make_env()
     assert num_agents == len(env.agents)
     obs_buffer_size = 0
     item_size = np.zeros(1, dtype=np.float32).nbytes
@@ -98,7 +105,7 @@ def main():
         main_agent_conns.append(conn1)
         obs_space = env.observation_spaces[agent]
         act_space = env.action_spaces[agent]
-        ap = Agent(i, env.agents[i], thread_limit=12 // num_agents, logger=info, args=args, obs_space=obs_space,
+        ap = Agent(i, env.agents[i], thread_limit=8 // num_agents, logger=info, args=args, obs_space=obs_space,
                    input_structure=input_structures[agent],
                    act_space=act_space, main_conn=conn2,
                    obs_shm=obs_shm, buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
@@ -112,7 +119,7 @@ def main():
     for i in range(num_envs):
         conn1, conn2 = mp.Pipe()
         main_env_conns.append(conn1)
-        ev = Environment(i, info, args, env=make_env(), agents=env.agents, main_conn=conn2,
+        ev = Environment(i, info, args, env=_make_env(), agents=env.agents, main_conn=conn2,
                          obs_shm=obs_shm, obs_locks=obs_locks[i], act_shm=act_shm, act_locks=act_locks[i])
         envs.append(ev)
         ev.start()

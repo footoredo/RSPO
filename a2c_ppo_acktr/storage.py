@@ -16,6 +16,7 @@ class RolloutStorage(object):
         self.value_preds = torch.zeros(num_steps + 1, num_processes, 1)
         self.returns = torch.zeros(num_steps + 1, num_processes, 1)
         self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
+        self.dice_deps = torch.zeros(num_steps, num_processes, 1)
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
         else:
@@ -39,6 +40,7 @@ class RolloutStorage(object):
         self.value_preds = self.value_preds.to(device)
         self.returns = self.returns.to(device)
         self.action_log_probs = self.action_log_probs.to(device)
+        self.dice_deps = self.dice_deps.to(device)
         self.actions = self.actions.to(device)
         self.masks = self.masks.to(device)
         self.bad_masks = self.bad_masks.to(device)
@@ -49,7 +51,8 @@ class RolloutStorage(object):
         self.recurrent_hidden_states[self.step +
                                      1].copy_(recurrent_hidden_states)
         self.actions[self.step].copy_(actions)
-        self.action_log_probs[self.step].copy_(action_log_probs)
+        # print(action_log_probs)
+        self.action_log_probs[self.step] = action_log_probs
         self.value_preds[self.step].copy_(value_preds)
         # print(self.rewards[self.step], rewards)
         self.rewards[self.step].copy_(rewards)
@@ -104,11 +107,25 @@ class RolloutStorage(object):
                 for step in reversed(range(self.rewards.size(0))):
                     self.returns[step] = self.returns[step + 1] * \
                         gamma * self.masks[step + 1] + self.rewards[step]
+        # if dice_lambda is not None:
+        #     self.compute_dice_deps(dice_lambda)
+
+    # def compute_dice_deps(self, dice_lambda):
+    #     weighted_cumsum = self.action_log_probs[0]
+    #     # print(self.action_log_probs[0])
+    #     for t in range(self.action_log_probs.size()[0]):
+    #         if t > 0:
+    #             weighted_cumsum = dice_lambda * weighted_cumsum * self.masks[t] + self.action_log_probs[t]
+    #         deps_exclusive = weighted_cumsum - self.action_log_probs[t]
+    #         self.dice_deps[t] = magic_box(weighted_cumsum) - magic_box(deps_exclusive)
+    #
+    #     # print(advantages.size(), full_deps.size())
 
     def feed_forward_generator(self,
                                advantages,
                                num_mini_batch=None,
-                               mini_batch_size=None):
+                               mini_batch_size=None,
+                               episode_steps=1):
         num_steps, num_processes = self.rewards.size()[0:2]
         batch_size = num_processes * num_steps
 
@@ -120,30 +137,55 @@ class RolloutStorage(object):
                 "".format(num_processes, num_steps, num_processes * num_steps,
                           num_mini_batch))
             mini_batch_size = batch_size // num_mini_batch
+        assert mini_batch_size % episode_steps == 0
+
+        def step_view(data):
+            data_shape = data.size()[2:]
+            # print(data.size(), mini_batch_size)
+            # print(data_shape)
+            # print(mini_batch_size, batch_size, num_mini_batch)
+            if episode_steps > 1:
+                return data[:num_steps].reshape(-1, episode_steps, num_processes, *data_shape).transpose(1, 2).\
+                    reshape(-1, episode_steps, *data_shape)
+            else:
+                return data[:num_steps].view(-1, *data_shape)
+
         sampler = BatchSampler(
-            SubsetRandomSampler(range(batch_size)),
-            mini_batch_size,
+            SubsetRandomSampler(range(batch_size // episode_steps)),
+            mini_batch_size // episode_steps,
             drop_last=True)
+
+        obs_step = step_view(self.obs)
+        recurrent_hidden_states = step_view(self.recurrent_hidden_states)
+        actions = step_view(self.actions)
+        value_preds = step_view(self.value_preds)
+        returns = step_view(self.returns)
+        masks = step_view(self.masks)
+        # print(episode_steps, masks.size())
+        action_log_probs = step_view(self.action_log_probs)
+
+        if advantages is not None:
+            advantages = step_view(advantages)
+
         for indices in sampler:
-            obs_batch = self.obs[:-1].view(-1, *self.obs.size()[2:])[indices]
-            recurrent_hidden_states_batch = self.recurrent_hidden_states[:-1].view(
-                -1, self.recurrent_hidden_states.size(-1))[indices]
-            actions_batch = self.actions.view(-1,
-                                              self.actions.size(-1))[indices]
-            value_preds_batch = self.value_preds[:-1].view(-1, 1)[indices]
-            return_batch = self.returns[:-1].view(-1, 1)[indices]
-            masks_batch = self.masks[:-1].view(-1, 1)[indices]
-            old_action_log_probs_batch = self.action_log_probs.view(-1,
-                                                                    1)[indices]
+            obs_batch = obs_step[indices]
+            recurrent_hidden_states_batch = recurrent_hidden_states[indices]
+            actions_batch = actions[indices]
+            value_preds_batch = value_preds[indices]
+            return_batch = returns[indices]
+            masks_batch = masks[indices]
+            old_action_log_probs_batch = action_log_probs[indices]
+
             if advantages is None:
                 adv_targ = None
             else:
-                adv_targ = advantages.view(-1, 1)[indices]
+                adv_targ = advantages[indices]
 
             yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
                 value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
 
-    def recurrent_generator(self, advantages, num_mini_batch):
+    def recurrent_generator(self, advantages, num_mini_batch, episode_steps=1):
+        assert episode_steps == 1
         num_processes = self.rewards.size(1)
         assert num_processes >= num_mini_batch, (
             "PPO requires the number of processes ({}) "
