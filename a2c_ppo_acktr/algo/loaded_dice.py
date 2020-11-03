@@ -39,10 +39,16 @@ class LoadedDiCE():
         self.use_clipped_value_loss = use_clipped_value_loss
         self.task = task
         self.save_dir = save_dir
+        self.lr = lr
+        self.eps = eps
 
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=lr, eps=eps)
 
+        self.evecs = None
+        self.evals = None
         self.evec = None
+        self.eval = None
+        self.last_gradient = None
         self.update_counter = 0
 
     def update(self, rollouts):
@@ -165,6 +171,7 @@ class LoadedDiCE():
             new_evecs = []
             for i in range(m):
                 z = V @ evecs[:, i]
+                z /= np.linalg.norm(z)
 
                 test = hv(fg, torch.tensor(z).float()).numpy() / z / evals[i] - 1
                 if np.linalg.norm(test) < 0.1:
@@ -184,13 +191,41 @@ class LoadedDiCE():
                     #     print(orth)
             return new_evals, new_evecs
 
-        for e in range(self.epoch):
+        def add_grad(grad, direction):
+            s = 0
+            with torch.no_grad():
+                for p, g in zip(self.actor_critic.parameters(), grad):
+                    if g is not None:
+                        length = g.view(-1).size()[0]
+                        p.data += torch.tensor(direction[s:s + length].reshape(p.data.size())).float()
+                        s += length
+
+        def test_evec(evec, gradients):
+            nevec = evec / evec.norm(2)
+            test_vec = hv(flat_grad(gradients), nevec)
+            p_eval = test_vec.norm(2)
+            sign_i = torch.abs(nevec).argmax().item()
+            sign = 1 if test_vec[sign_i] * nevec[sign_i] > 0 else -1
+            test_vec /= test_vec.norm(2)
+            random_vec = torch.randn(*self.evec.shape)
+            random_vec /= random_vec.norm(2)
+            test_vec2 = hv(flat_grad(gradients), random_vec)
+            test_vec2 /= test_vec2.norm(2)
+            return sign * p_eval.item(), (test_vec - sign * nevec).norm(2).item(), (test_vec2 - sign * random_vec).norm(2).item()
+
+        if self.task == "eigen":
+            epoch = 1
+            num_mini_batch = 1
+        else:
+            epoch = self.epoch
+            num_mini_batch = self.num_mini_batch
+        for e in range(epoch):
             if self.actor_critic.is_recurrent:
                 data_generator = rollouts.recurrent_generator(
-                    advantages, self.num_mini_batch, None, self.episode_steps)
+                    advantages, num_mini_batch, None, self.episode_steps)
             else:
                 data_generator = rollouts.feed_forward_generator(
-                    advantages, self.num_mini_batch, None, self.episode_steps)
+                    advantages, num_mini_batch, None, self.episode_steps)
 
             reward = 0.
             for sample in data_generator:
@@ -254,21 +289,116 @@ class LoadedDiCE():
                      dist_entropy * self.entropy_coef).backward()
 
                     self.optimizer.step()
+                elif self.task == "gradient":
+                    gradient = flat_grad(gradients)
+                    gradient /= gradient.norm(2)
+                    if self.last_gradient is not None:
+                        print("similarity:", self.last_gradient @ gradient)
+                    self.last_gradient = gradient
                 elif self.task == "eigen":
                     # lanczos_method(gradients)
-                    evals, evecs = lanczos_method(gradients)
-                    evals = np.array(evals)
-                    evecs = np.array(evecs)
-                    import joblib
-                    joblib.dump((evals, evecs), os.path.join(mkdir2(self.save_dir, "update-{}".format(self.update_counter)), "eigen.data"))
+                    if self.evec is None:
+                        evals, evecs = lanczos_method(gradients)
+                        evals = np.array(evals)
+                        evecs = np.array(evecs)
+                        # import joblib
+                        # joblib.dump((evals, evecs), os.path.join(mkdir2(self.save_dir, "update-{}".format(self.update_counter)), "eigen.data"))
+                        if self.evec is not None:
+                            for evec in evecs:
+                                dis = self.evec @ evec
+                                print(dis)
+                        # self.evecs = evecs
+                        # self.evals = evals
+                        # self.eval = evals[0]
+                        # self.evec = evecs[0]
+                        dists = []
+                        m = 5
+                        for i in range(m):
+                            print(evals[i], evecs[i])
+
+                            add_grad(gradients, evecs[i])
+                            _, _, _, _, dist = self.actor_critic.evaluate_actions(
+                                flat_view(obs_batch), flat_view(recurrent_hidden_states_batch), flat_view(masks_batch),
+                                flat_view(actions_batch))
+                            dists.append(dist.logits)
+                            add_grad(gradients, -evecs[i])
+
+                        np.set_printoptions(precision=4)
+                        sim = np.zeros((m, m))
+                        for i in range(m):
+                            for j in range(i + 1):
+                                dis = (dists[i] - dists[j]).norm(2)
+                                sim[i, j] = sim[j, i] = dis
+                        print(sim)
+
+                        self.evec = evecs[0]
+                        self.eval = evals[0]
+                        self.evecs = evecs
+                        self.evals = evals
+                        # self.task = None
 
                         # print(eval, evec)
                         # self.evecs = evec
+                    else:
+                        fg = flat_grad(gradients)
+                        te = torch.tensor(self.evec).float()
+                        new_eval = (te @ hv(fg, te)).detach().item()
+
+                        eval = torch.tensor(new_eval, requires_grad=True)
+                        evec = torch.tensor(self.evec, requires_grad=True, dtype=torch.float)
+
+                        # optimizer = optim.Adam((eval, evec), lr=self.lr, eps=self.eps)
+
+                        lr = 1e-2
+
+                        print(test_evec(evec, gradients))
+                        p_evec = torch.tensor(self.evec, dtype=torch.float)
+                        for _ in range(200):
+                            nevec = evec / evec.norm(2)
+                            h = hv(fg, nevec)
+                            loss = (h / h.norm(2) + nevec).norm(2) - nevec @ p_evec  # lambda < 0
+
+                            # optimizer.zero_grad()
+                            # loss.backward()
+                            # optimizer.step()
+                            g = torch.autograd.grad(loss, evec, create_graph=True)[0]
+                            # print(g.norm(2), g.max(), g.min())
+                            evec.data -= lr * g
+
+                            if (_ + 1) % 50 == 0:
+                                print(_, test_evec(evec, gradients))
+
+                        self.eval, _, _ = test_evec(evec, gradients)
+                        self.evec = evec.detach().numpy()
+                        for i in range(5):
+                            print(self.evec @ self.evecs[i])
+                    alpha = 1e-1
+                    add_grad(gradients, -alpha * self.evec)
+
+                    gradients = calc_grad(action_loss, create_graph=True)
+                    total_norm = 0.
+                    for g in gradients:
+                        if g is not None:
+                            param_norm = g.norm(2)
+                            total_norm += param_norm ** 2
+                    total_norm = total_norm ** (1. / 2)
+                    if total_norm > 0.1:
+                        print("Eigen stop. Start SGD.")
+                        self.task = None
+
+                    #
                     # test_vec = hv(flat_grad(gradients), torch.tensor(self.evec).float()).detach().numpy() / self.evec
                     # random_vec = np.random.randn(*self.evec.shape)
                     # random_vec /= np.linalg.norm(random_vec)
                     # test_vec2 = hv(flat_grad(gradients), torch.tensor(random_vec).float()).detach().numpy() / random_vec
-                    # print(np.std(test_vec), np.std(test_vec2))
+                    # print(self.eval, np.mean(test_vec), np.std(test_vec), np.std(test_vec2))
+
+                    # for i, evec in enumerate(self.evecs):
+                    #     test_vec = hv(flat_grad(gradients), torch.tensor(evec).float()).detach().numpy() / evec
+                    #     random_vec = np.random.randn(*evec.shape)
+                    #     random_vec /= np.linalg.norm(random_vec)
+                    #     test_vec2 = hv(flat_grad(gradients), torch.tensor(random_vec).float()).detach().numpy() / random_vec
+                    #     print(i, self.evals[i], np.mean(test_vec), np.std(test_vec), np.std(test_vec2))
 
                     # s = 0
                     # with torch.no_grad():
@@ -293,9 +423,9 @@ class LoadedDiCE():
                 dist_entropy_epoch += dist_entropy.item()
 
             if e == 0:
-                print("reward:", reward / self.num_mini_batch)
+                print("reward:", reward / num_mini_batch)
 
-        num_updates = self.epoch * self.num_mini_batch
+        num_updates = epoch * num_mini_batch
 
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates

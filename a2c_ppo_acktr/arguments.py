@@ -164,12 +164,33 @@ def get_args():
         default='./trained_models/',
         help='directory to save data (default: ./trained_models/)')
     parser.add_argument(
+        '--load',
+        action="store_true",
+        help='whether to load model')
+    parser.add_argument(
         '--load-dir',
         help='directory to load model')
     parser.add_argument(
         '--load-step',
         type=int,
         help='step to load model')
+    parser.add_argument(
+        '--reseed-step',
+        type=int,
+        help='step to reseed environment')
+    parser.add_argument(
+        '--render',
+        action='store_true',
+        help='if render after training')
+    parser.add_argument(
+        '--plot',
+        action='store_true',
+        help='if plot after training')
+    parser.add_argument(
+        '--reseed-z',
+        type=int,
+        default=1,
+        help='z to reseed environment')
     parser.add_argument(
         '--dice-task',
         help='task for dice')

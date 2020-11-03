@@ -140,7 +140,7 @@ class Agent(mp.Process):
         actor_critic, agent = get_agent(self.args, self.obs_space, self.input_structure, self.act_space,
                                         self.use_attention, self.save_dir)
         # print(self.num_steps)
-        if args.load_dir is not None and args.load_step is not None:
+        if args.load_dir is not None and args.load_step is not None and args.load:
             self.log("Loading model from {}".format(args.load_dir))
             actor_critic.load_state_dict(torch.load(os.path.join(args.load_dir, self.agent_name,
                                                                  "update-{}".format(args.load_step), "model.obj")))

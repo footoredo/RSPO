@@ -315,8 +315,13 @@ class CNNBase(NNBase):
         return self.critic_linear(x), x, rnn_hxs
 
 
+ACTIVATION_FN = {
+    "tanh": nn.Tanh,
+    "relu": nn.ReLU
+}
+
 class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh"):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         if recurrent:
@@ -324,14 +329,17 @@ class MLPBase(NNBase):
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
+        # init_ = lambda m:  m
+
+        activation_fn = ACTIVATION_FN[activation]
 
         self.actor = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+            init_(nn.Linear(num_inputs, hidden_size)), activation_fn(),
+            init_(nn.Linear(hidden_size, hidden_size)), activation_fn())
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+            init_(nn.Linear(num_inputs, hidden_size)), activation_fn(),
+            init_(nn.Linear(hidden_size, hidden_size)), activation_fn())
 
         self.critic_linear = init_(nn.Linear(hidden_size, 1))
 

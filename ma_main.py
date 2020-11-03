@@ -31,8 +31,6 @@ from a2c_ppo_acktr.multi_agent.utils import *
 import logging
 import multiprocessing as mp
 
-info = mp.get_logger().info
-
 
 def make_env(env_name, steps):
     if steps is None:
@@ -49,10 +47,7 @@ def train_in_turn(n_agents, i, n_iter):
     return n_iter % n_agents == i
 
 
-def main():
-    logger = mp.log_to_stderr()
-    logger.setLevel(logging.INFO)
-    args = get_args()
+def main(args, logger):
     num_agents = args.num_agents
     num_envs = args.num_processes
 
@@ -97,7 +92,7 @@ def main():
     act_shm = shared_memory.SharedMemory(create=True, size=num_envs * num_agents)
 
     input_structures = env.input_structures
-    print("input_structures:", input_structures)
+    # print("input_structures:", input_structures)
 
     # print(len(env.agents))
     for i, agent in enumerate(env.agents):
@@ -105,7 +100,7 @@ def main():
         main_agent_conns.append(conn1)
         obs_space = env.observation_spaces[agent]
         act_space = env.action_spaces[agent]
-        ap = Agent(i, env.agents[i], thread_limit=8 // num_agents, logger=info, args=args, obs_space=obs_space,
+        ap = Agent(i, env.agents[i], thread_limit=8 // num_agents, logger=logger.info, args=args, obs_space=obs_space,
                    input_structure=input_structures[agent],
                    act_space=act_space, main_conn=conn2,
                    obs_shm=obs_shm, buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
@@ -119,7 +114,7 @@ def main():
     for i in range(num_envs):
         conn1, conn2 = mp.Pipe()
         main_env_conns.append(conn1)
-        ev = Environment(i, info, args, env=_make_env(), agents=env.agents, main_conn=conn2,
+        ev = Environment(i, logger.info, args, env=_make_env(), agents=env.agents, main_conn=conn2,
                          obs_shm=obs_shm, obs_locks=obs_locks[i], act_shm=act_shm, act_locks=act_locks[i])
         envs.append(ev)
         ev.start()
@@ -145,14 +140,18 @@ def main():
     import joblib
     joblib.dump(statistics, os.path.join(save_dir, "statistics.obj"))
 
-    plot_statistics(statistics, "reward")
-    plot_statistics(statistics, "grad_norm")
-    plot_statistics(statistics, "value_loss")
-    plot_statistics(statistics, "action_loss")
-    plot_statistics(statistics, "dist_entropy")
+    if args.plot:
+        plot_statistics(statistics, "reward")
+        plot_statistics(statistics, "grad_norm")
+        plot_statistics(statistics, "value_loss")
+        plot_statistics(statistics, "action_loss")
+        plot_statistics(statistics, "dist_entropy")
 
+    env.seed(args.seed + 31234)
     obs = env.reset()
     dones = {agent: False for agent in env.agents}
+    num_games = 0
+    close_to = [0, 0]
     while True:
         actions = dict()
         for i, agent in enumerate(env.agents):
@@ -160,14 +159,20 @@ def main():
             actions[agent] = main_agent_conns[i].recv()
             # print(agent, actions[agent])
         obs, rewards, dones, infos = env.step(actions)
-        env.render()
-        time.sleep(0.1)
+        if args.render:
+            env.render()
+            time.sleep(0.1)
 
         not_done = False
         for agent in env.agents:
             not_done = not_done or not dones[agent]
 
         if not not_done:
+            num_games += 1
+            # print(infos[env.agents[0]])
+            close_to[np.argmin(infos[env.agents[0]])] += 1
+            if num_games >= 100:
+                break
             obs = env.reset()
             dones = {agent: False for agent in env.agents}
 
@@ -175,5 +180,11 @@ def main():
         main_agent_conns[i].send(None)
         agent.join()
 
+    return close_to
+
+
 if __name__ == "__main__":
-    main()
+    args = get_args()
+    logger = mp.log_to_stderr()
+    logger.setLevel(logging.INFO)
+    main(args, logger)

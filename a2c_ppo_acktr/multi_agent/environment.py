@@ -23,6 +23,8 @@ class Environment(mp.Process):
         self.reward_norm = args.reward_normalization
         self.batch_size = self.num_steps * self.num_envs
         self.num_env_steps = args.num_env_steps // args.num_processes
+        self.reseed_step = args.reseed_step // args.num_processes if args.reseed_step is not None else None
+        self.reseed_z = args.reseed_z
         self.dtype = np.float32
 
         self.env = env
@@ -33,6 +35,15 @@ class Environment(mp.Process):
         self.act_shm = act_shm
         self.obs_locks = obs_locks
         self.act_locks = act_locks
+        self.np_random = np.random.RandomState(seed=self.seed)
+
+    def reseed(self):
+        seed = None
+        for iz in range(self.reseed_z):
+            seed = self.np_random.randint(10000)
+        seed += self.reseed_step
+        self.env.seed(seed)
+        self.log("reseed with seed {}".format(seed))
 
     def log(self, msg):
         self.logger("Environment-{}: {}".format(self.env_id, msg))
@@ -55,6 +66,9 @@ class Environment(mp.Process):
         if self.reward_norm:
             reward_filters = {agent: RewardFilter(reward_filters[agent], shape=(), gamma=args.gamma, clip=False)
                               for agent in self.agents}
+
+        if self.reseed_step is not None and 0 == self.reseed_step:
+            self.reseed()
 
         init_obs = env.reset()
         # self.log(init_obs)
@@ -96,6 +110,9 @@ class Environment(mp.Process):
                 # self.log("step {} from {} - act {}".format(step, agent, actions[agent]))
             # release_all_locks(self.act_locks)
             # acquire_all_locks(self.obs_locks)
+
+            if self.reseed_step is not None and step + 1 == self.reseed_step:
+                self.reseed()
 
             if done:
                 obs = env.reset()
