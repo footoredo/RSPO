@@ -167,22 +167,23 @@ class RolloutStorage(object):
         if advantages is not None:
             advantages = step_view(advantages)
 
-        for indices in sampler:
-            obs_batch = obs_step[indices]
-            recurrent_hidden_states_batch = recurrent_hidden_states[indices]
-            actions_batch = actions[indices]
-            value_preds_batch = value_preds[indices]
-            return_batch = returns[indices]
-            masks_batch = masks[indices]
-            old_action_log_probs_batch = action_log_probs[indices]
+        while True:
+            for indices in sampler:
+                obs_batch = obs_step[indices]
+                recurrent_hidden_states_batch = recurrent_hidden_states[indices]
+                actions_batch = actions[indices]
+                value_preds_batch = value_preds[indices]
+                return_batch = returns[indices]
+                masks_batch = masks[indices]
+                old_action_log_probs_batch = action_log_probs[indices]
 
-            if advantages is None:
-                adv_targ = None
-            else:
-                adv_targ = advantages[indices]
+                if advantages is None:
+                    adv_targ = None
+                else:
+                    adv_targ = advantages[indices]
 
-            yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+                yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
+                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
 
     def recurrent_generator(self, advantages, num_mini_batch, episode_steps=1):
         assert episode_steps == 1

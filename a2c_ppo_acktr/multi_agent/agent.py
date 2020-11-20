@@ -47,7 +47,10 @@ def get_agent(args, obs_space, input_structure, act_space, use_attention, save_d
             lr=args.lr,
             eps=args.eps,
             max_grad_norm=args.max_grad_norm,
-            clip_grad_norm=not args.no_grad_norm_clip)
+            clip_grad_norm=not args.no_grad_norm_clip,
+            task=args.task,
+            direction=args.direction
+        )
     elif args.algo == 'acktr':
         agent = algo.A2C_ACKTR(
             actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
@@ -135,7 +138,14 @@ class Agent(mp.Process):
         args = self.args
         use_dice = args.algo == "loaded-dice"
         # dice_lambda = args.dice_lambda if use_dice else None
-        torch.manual_seed(self.seed)
+        np_random = np.random.RandomState(self.seed)
+        if args.reseed_step is not None and args.reseed_step < 0:
+            seed = self.seed
+            for iz in range(args.reseed_z):
+                seed = np_random.randint(10000)
+            torch.manual_seed(seed)
+        else:
+            torch.manual_seed(self.seed)
         # self.log(self.obs_space)
         actor_critic, agent = get_agent(self.args, self.obs_space, self.input_structure, self.act_space,
                                         self.use_attention, self.save_dir)
@@ -165,6 +175,7 @@ class Agent(mp.Process):
         update_counter = 0
 
         for it in range(self.num_updates):
+            # self.log(1)
             # self.log("iter: {}".format(it))
             for step in range(self.num_steps):
                 # self.log(step)
@@ -202,6 +213,7 @@ class Agent(mp.Process):
                                      args.gae_lambda, args.use_proper_time_limits)
 
             if self.train(it):
+                # self.log("ready to update")
                 value_loss, action_loss, dist_entropy, grad_norm = agent.update(rollouts)
                 self.log("Update #{}, value_loss {}, action_loss {}, dist_entropy {}, grad_norm {}"
                          .format(it, value_loss, action_loss, dist_entropy, grad_norm))

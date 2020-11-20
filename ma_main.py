@@ -100,7 +100,7 @@ def main(args, logger):
         main_agent_conns.append(conn1)
         obs_space = env.observation_spaces[agent]
         act_space = env.action_spaces[agent]
-        ap = Agent(i, env.agents[i], thread_limit=8 // num_agents, logger=logger.info, args=args, obs_space=obs_space,
+        ap = Agent(i, env.agents[i], thread_limit=args.parallel_limit // num_agents, logger=logger.info, args=args, obs_space=obs_space,
                    input_structure=input_structures[agent],
                    act_space=act_space, main_conn=conn2,
                    obs_shm=obs_shm, buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
@@ -147,7 +147,7 @@ def main(args, logger):
         plot_statistics(statistics, "action_loss")
         plot_statistics(statistics, "dist_entropy")
 
-    env.seed(args.seed + 31234)
+    env.seed(np.random.randint(10000))
     obs = env.reset()
     dones = {agent: False for agent in env.agents}
     num_games = 0
@@ -171,7 +171,7 @@ def main(args, logger):
             num_games += 1
             # print(infos[env.agents[0]])
             close_to[np.argmin(infos[env.agents[0]])] += 1
-            if num_games >= 100:
+            if (not args.render) and (num_games >= 100):
                 break
             obs = env.reset()
             dones = {agent: False for agent in env.agents}
@@ -180,6 +180,7 @@ def main(args, logger):
         main_agent_conns[i].send(None)
         agent.join()
 
+    print(close_to)
     return close_to
 
 

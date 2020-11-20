@@ -228,7 +228,11 @@ class LoadedDiCE():
                     advantages, num_mini_batch, None, self.episode_steps)
 
             reward = 0.
+            cnt_sample = 0
             for sample in data_generator:
+                cnt_sample += 1
+                if cnt_sample > num_mini_batch:
+                    break
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
                         adv_targ = sample
@@ -284,9 +288,11 @@ class LoadedDiCE():
                 grad_norm_epoch += total_norm.item()
 
                 if self.task == "MIS":
+                    # print("!")
                     self.optimizer.zero_grad()
-                    (value_loss * self.value_loss_coef + total_norm -
-                     dist_entropy * self.entropy_coef).backward()
+                    # (value_loss * self.value_loss_coef + total_norm -
+                    #  dist_entropy * self.entropy_coef).backward()
+                    (-dist_entropy).backward()
 
                     self.optimizer.step()
                 elif self.task == "gradient":

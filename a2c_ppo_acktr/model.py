@@ -69,6 +69,11 @@ class Policy(nn.Module):
         value, _, _ = self.base(inputs, rnn_hxs, masks)
         return value
 
+    def get_strategy(self, inputs, rnn_hxs, masks):
+        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        dist = self.dist(actor_features)
+        return dist.probs
+
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
@@ -329,6 +334,7 @@ class MLPBase(NNBase):
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
+        # init_ = lambda m: init(m, lambda x: nn.init.constant_(x, 0), lambda x: nn.init.constant_(x, 0), None)
         # init_ = lambda m:  m
 
         activation_fn = ACTIVATION_FN[activation]

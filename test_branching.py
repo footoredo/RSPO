@@ -10,9 +10,12 @@ def test_main():
     args = get_args()
 
     datas = []
-    for i in range(args.num_env_steps // (args.num_steps * args.num_processes) + 1):
+    # for i in range(-1, args.num_env_steps // (args.num_steps * args.num_processes) + 1):
+    for i in range(-1, 0):
+    # for i in [-1]:
+    #     print("i:", i)
         args.reseed_step = i * args.num_steps * args.num_processes
-        for z in range(5):
+        for z in range(20):
             args.reseed_z = z + 1
 
             close_to = main(args, logger)
@@ -20,7 +23,7 @@ def test_main():
             datas.append((i, z, close_to))
 
     import joblib
-    joblib.dump(datas, "test_branching.data")
+    joblib.dump(datas, "{}-{}.data".format(args.test_branching_name, args.seed))
 
 
 if __name__ == "__main__":

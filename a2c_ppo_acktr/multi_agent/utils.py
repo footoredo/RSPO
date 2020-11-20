@@ -3,6 +3,48 @@ import torch
 import os
 import pathlib
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.manifold import TSNE
+
+
+def tsne(v, h=None, s=None, pdf=False):
+    v_embedded = TSNE(n_components=2).fit_transform(v)
+    xs = v_embedded[:, 0]
+    ys = v_embedded[:, 1]
+    hs = h[:] if h is not None else [np.linalg.norm(_) for _ in v]
+    ss = s[:] if s is not None else [1. for _ in v]
+    df = pd.DataFrame(dict(x=xs, y=ys, h=hs, s=ss))
+    df = df.sort_values(by="h")
+    # rel = sns.relplot(x="x", y="y", hue="h", size="s", sizes=(15, 200), palette="ch:r=-1.,l=1.", data=df)
+    rel = sns.relplot(x="x", y="y", hue="h", size="s", sizes=(15, 200), data=df)
+#     rel.fig.axes[0].scatter([v_embedded[-1, 0]], [v_embedded[-1, 0]], facecolors='none', edgecolors='r', s=80)
+    if pdf:
+        plt.savefig("tsne.pdf")
+    else:
+        plt.show()
+
+
+def ggrad(net, obj):
+    return torch.autograd.grad(obj, net.parameters(), create_graph=True, allow_unused=True)
+
+
+def net_add(net, vec):
+    s = 0
+    for p in net.parameters():
+        l = p.view(-1).size()[0]
+        p.data += vec[s:s + l].view(p.size())
+        # print(p)
+
+
+def flat_view(grads):
+    flat_gs = []
+    for g in grads:
+        if g is not None:
+            flat_gs.append(g.view(-1))
+    return torch.cat(flat_gs, dim=0)
+
 
 def plot_statistics(statistics, keyword):
     import seaborn as sns

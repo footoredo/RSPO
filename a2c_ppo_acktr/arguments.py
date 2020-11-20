@@ -22,6 +22,11 @@ def get_args():
         default=128,
         help='gail batch size (default: 128)')
     parser.add_argument(
+        '--parallel-limit',
+        type=int,
+        default=10,
+        help='parallel limit')
+    parser.add_argument(
         '--gail-epoch', type=int, default=5, help='gail epochs (default: 5)')
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
@@ -192,8 +197,19 @@ def get_args():
         default=1,
         help='z to reseed environment')
     parser.add_argument(
+        '--direction',
+        type=int,
+        help='direction')
+    parser.add_argument(
         '--dice-task',
         help='task for dice')
+    parser.add_argument(
+        '--test-branching-name',
+        default="test-branching",
+        help='test-branching-name')
+    parser.add_argument(
+        '--task',
+        help='task')
     parser.add_argument(
         '--no-cuda',
         action='store_true',

@@ -101,8 +101,8 @@ class Environment(mp.Process):
         done = False
 
         for step in range(self.num_env_steps):
-            # self.log(step)
             release_all_locks(self.obs_locks)
+            # self.log(step)
             acquire_all_locks(self.act_locks)
             for i, agent in enumerate(self.agents):
                 actions[agent] = self.act_shm.buf[self.env_id * self.num_agents + i]
