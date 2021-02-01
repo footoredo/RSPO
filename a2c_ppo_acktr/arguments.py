@@ -3,6 +3,17 @@ import argparse
 import torch
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
@@ -51,6 +62,16 @@ def get_args():
         default=False,
         help='use generalized advantage estimation')
     parser.add_argument(
+        '--use-reference',
+        action='store_true',
+        default=False,
+        help='use reference agent')
+    parser.add_argument(
+        '--ppo-use-reference',
+        action='store_true',
+        default=False,
+        help='ppo use reference agent')
+    parser.add_argument(
         '--gae-lambda',
         type=float,
         default=0.95,
@@ -90,6 +111,11 @@ def get_args():
         action='store_true',
         default=False,
         help='use attention mechanism in policy (default: False)')
+    parser.add_argument(
+        '--use-linear',
+        action='store_true',
+        default=False,
+        help='use linear in policy (default: False)')
     parser.add_argument(
         '--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument(
@@ -153,6 +179,11 @@ def get_args():
         default=10e6,
         help='number of environment steps to train (default: 10e6)')
     parser.add_argument(
+        '--num-games-after-training',
+        type=int,
+        default=100,
+        help='number of games played after training')
+    parser.add_argument(
         '--episode-steps',
         type=int,
         help='number of steps per episode')
@@ -169,6 +200,14 @@ def get_args():
         default='./trained_models/',
         help='directory to save data (default: ./trained_models/)')
     parser.add_argument(
+        '--no-play',
+        action="store_true",
+        help='don\'t play after training')
+    parser.add_argument(
+        '--gif',
+        action="store_true",
+        help='make gif')
+    parser.add_argument(
         '--load',
         action="store_true",
         help='whether to load model')
@@ -179,6 +218,20 @@ def get_args():
         '--load-step',
         type=int,
         help='step to load model')
+    parser.add_argument(
+        '--ref-load-dir',
+        nargs="*",
+        help='directory to load reference model')
+    parser.add_argument(
+        '--ref-load-step',
+        nargs="*",
+        type=int,
+        help='step to load reference model')
+    parser.add_argument(
+        '--ref-num-ref',
+        nargs="*",
+        type=int,
+        help='reference model used reference')
     parser.add_argument(
         '--reseed-step',
         type=int,
@@ -198,6 +251,10 @@ def get_args():
         help='z to reseed environment')
     parser.add_argument(
         '--direction',
+        type=int,
+        help='direction')
+    parser.add_argument(
+        '--guided-updates',
         type=int,
         help='direction')
     parser.add_argument(
@@ -234,7 +291,7 @@ def get_args():
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    assert args.algo in ['a2c', 'ppo', 'acktr', 'loaded-dice']
+    assert args.algo in ['a2c', 'ppo', 'acktr', 'loaded-dice', 'hessian']
     if args.recurrent_policy:
         assert args.algo in ['a2c', 'ppo', 'loaded-dice'], \
             'Recurrent policy is not implemented for ACKTR'

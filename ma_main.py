@@ -37,10 +37,18 @@ def make_env(env_name, steps):
         steps = 32
     if env_name == "simple-tag":
         from pettingzoo.mpe import simple_tag_v1
-        return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=steps - 3)
+        return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=steps)
     elif env_name == "simple":
         from pettingzoo.mpe import simple_v1
-        return simple_v1.parallel_env(num_targets=2, max_frames=steps - 3)
+        return simple_v1.parallel_env(num_targets=2, max_frames=steps, depth=1, reward_scale=1., size_scale=100.)
+    elif env_name == "simple-key":
+        from pettingzoo.mpe import simple_key_v1
+        return simple_key_v1.parallel_env(max_frames=steps)
+    elif env_name == 'stag-hunt-gw':
+        from pettingzoo.mappo_ssd import stag_hunt_gw_v1
+        return stag_hunt_gw_v1.parallel_env(max_frames=steps, share_reward=False, shape_reward=False, shape_beta=0.8)
+    else:
+        raise NotImplementedError(env_name)
 
 
 def train_in_turn(n_agents, i, n_iter):
@@ -50,6 +58,9 @@ def train_in_turn(n_agents, i, n_iter):
 def main(args, logger):
     num_agents = args.num_agents
     num_envs = args.num_processes
+
+    # if args.use_reference:
+    #     args.num_env_steps *= 2
 
     agents = []
     main_agent_conns = []
@@ -100,14 +111,40 @@ def main(args, logger):
         main_agent_conns.append(conn1)
         obs_space = env.observation_spaces[agent]
         act_space = env.action_spaces[agent]
-        ap = Agent(i, env.agents[i], thread_limit=args.parallel_limit // num_agents, logger=logger.info, args=args, obs_space=obs_space,
+
+        ref_agents = None
+        if args.use_reference or args.ppo_use_reference:
+            ref_load_dirs = args.ref_load_dir
+            ref_load_steps = args.ref_load_step
+            ref_num_refs = args.ref_num_ref
+            if type(ref_load_dirs) != list:
+                ref_load_dirs = [ref_load_dirs]
+            if type(ref_load_steps) != list:
+                ref_load_steps = [ref_load_steps] * len(ref_load_dirs)
+            if type(ref_num_refs) != list:
+                ref_num_refs = [ref_num_refs] * len(ref_load_dirs)
+            ref_agents = []
+            # print(ref_load_steps, args.ref_use_ref)
+            for ld, ls, nr in zip(ref_load_dirs, ref_load_steps, ref_num_refs):
+                ref_agent, _ = get_agent(args, obs_space, input_structures[agent], act_space, None, n_ref=nr)
+                load_actor_critic(ref_agent, ld, env.agents[i], ls)
+                ref_agents.append(ref_agent)
+
+                # while True:
+                #     obs = list(map(float, input().split()))
+                #     obs = torch.tensor(obs, dtype=torch.float)
+                #     print(ref_agent.get_strategy(obs, None, None))
+
+        ap = Agent(i, env.agents[i], thread_limit=args.parallel_limit // num_agents, logger=logger.info, args=args,
+                   obs_space=obs_space,
                    input_structure=input_structures[agent],
                    act_space=act_space, main_conn=conn2,
                    obs_shm=obs_shm, buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
                    obs_locks=[locks[i] for locks in obs_locks], act_shm=act_shm,
                    act_locks=[locks[i] for locks in act_locks], use_attention=args.use_attention,
                    save_dir=save_dir,
-                   train=partial(train_in_turn, args.num_agents, i))
+                   train=partial(train_in_turn, args.num_agents, i),
+                   reference_agent=ref_agents)
         agents.append(ap)
         ap.start()
 
@@ -142,39 +179,51 @@ def main(args, logger):
 
     if args.plot:
         plot_statistics(statistics, "reward")
-        plot_statistics(statistics, "grad_norm")
-        plot_statistics(statistics, "value_loss")
-        plot_statistics(statistics, "action_loss")
-        plot_statistics(statistics, "dist_entropy")
+        if args.use_reference:
+            plot_statistics(statistics, "dist_penalty")
+        # plot_statistics(statistics, "grad_norm")
+        # plot_statistics(statistics, "value_loss")
+        # plot_statistics(statistics, "action_loss")
+        # plot_statistics(statistics, "dist_entropy")
 
-    env.seed(np.random.randint(10000))
-    obs = env.reset()
-    dones = {agent: False for agent in env.agents}
-    num_games = 0
-    close_to = [0, 0]
-    while True:
-        actions = dict()
-        for i, agent in enumerate(env.agents):
-            main_agent_conns[i].send((obs[agent], dones[agent]))
-            actions[agent] = main_agent_conns[i].recv()
-            # print(agent, actions[agent])
-        obs, rewards, dones, infos = env.step(actions)
-        if args.render:
-            env.render()
-            time.sleep(0.1)
+    close_to = [0, 0, 0]
+    if not args.no_play:
+        env.seed(np.random.randint(10000))
+        obs = env.reset()
+        dones = {agent: False for agent in env.agents}
+        num_games = 0
+        images = []
+        while True:
+            actions = dict()
+            for i, agent in enumerate(env.agents):
+                main_agent_conns[i].send((obs[agent], dones[agent]))
+                actions[agent] = main_agent_conns[i].recv()
+                # print(agent, actions[agent])
+            obs, rewards, dones, infos = env.step(actions)
+            if args.render:
+                env.render()
+                time.sleep(0.1)
+            elif args.gif:
+                image = env.render(mode='rgb_array')
+                # print(image)
+                images.append(image)
 
-        not_done = False
-        for agent in env.agents:
-            not_done = not_done or not dones[agent]
+            not_done = False
+            for agent in env.agents:
+                not_done = not_done or not dones[agent]
 
-        if not not_done:
-            num_games += 1
-            # print(infos[env.agents[0]])
-            close_to[np.argmin(infos[env.agents[0]])] += 1
-            if (not args.render) and (num_games >= 100):
-                break
-            obs = env.reset()
-            dones = {agent: False for agent in env.agents}
+            if not not_done:
+                num_games += 1
+                # print(infos[env.agents[0]])
+                close_to[np.argmin(infos[env.agents[0]])] += 1
+                if (not args.render) and (num_games >= args.num_games_after_training):
+                    break
+                obs = env.reset()
+                dones = {agent: False for agent in env.agents}
+
+        if args.gif:
+            from a2c_ppo_acktr.multi_agent.utils import save_gif
+            save_gif(images, os.path.join(save_dir, "plays.gif"), 15)
 
     for i, agent in enumerate(agents):
         main_agent_conns[i].send(None)

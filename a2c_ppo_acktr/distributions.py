@@ -67,6 +67,7 @@ class Categorical(nn.Module):
             gain=0.01)
 
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
+        # self.linear = nn.Linear(num_inputs, num_outputs, bias=False)
 
     def forward(self, x):
         x = self.linear(x)

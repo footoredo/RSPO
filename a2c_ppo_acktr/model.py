@@ -74,12 +74,20 @@ class Policy(nn.Module):
         dist = self.dist(actor_features)
         return dist.probs
 
+    def get_probs(self, inputs, rnn_hxs, masks, action):
+        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        dist = self.dist(actor_features)
+
+        action_log_probs = dist.log_probs(action)
+
+        return torch.exp(action_log_probs)
+
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
 
         action_log_probs = dist.log_probs(action)
-        dist_entropy = dist.entropy().mean()
+        dist_entropy = dist.entropy()
 
         return value, action_log_probs, dist_entropy, rnn_hxs, dist
 
@@ -325,8 +333,36 @@ ACTIVATION_FN = {
     "relu": nn.ReLU
 }
 
+
+class LinearBase(NNBase):
+    def __init__(self, num_inputs):
+        super(LinearBase, self).__init__(False, num_inputs, num_inputs)
+
+        self.num_inputs = num_inputs
+
+        self.actor = nn.Identity()
+
+        self.critic = nn.Identity()
+
+        self.critic_linear = nn.Linear(num_inputs, 1)
+
+        self.train()
+
+    @property
+    def output_size(self):
+        return self.num_inputs
+
+    def forward(self, inputs, rnn_hxs, masks):
+        x = inputs
+
+        hidden_critic = self.critic(x)
+        hidden_actor = self.actor(x)
+
+        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs
+
+
 class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh"):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh", critic_dim=1):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         if recurrent:
@@ -337,19 +373,27 @@ class MLPBase(NNBase):
         # init_ = lambda m: init(m, lambda x: nn.init.constant_(x, 0), lambda x: nn.init.constant_(x, 0), None)
         # init_ = lambda m:  m
 
+        self.num_inputs = num_inputs
         activation_fn = ACTIVATION_FN[activation]
 
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_size)), activation_fn(),
             init_(nn.Linear(hidden_size, hidden_size)), activation_fn())
 
+        # self.actor = nn.Identity()
+
         self.critic = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_size)), activation_fn(),
             init_(nn.Linear(hidden_size, hidden_size)), activation_fn())
 
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
+        self.critic_linear = init_(nn.Linear(hidden_size, critic_dim))
+        self.critic_dim = critic_dim
 
         self.train()
+
+    # @property
+    # def output_size(self):
+    #     return self.num_inputs
 
     def forward(self, inputs, rnn_hxs, masks):
         x = inputs

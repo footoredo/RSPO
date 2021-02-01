@@ -8,13 +8,14 @@ def _flatten_helper(T, N, _tensor):
 
 class RolloutStorage(object):
     def __init__(self, num_steps, num_processes, obs_shape, action_space,
-                 recurrent_hidden_state_size):
+                 recurrent_hidden_state_size, reward_dim=1):
         self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
         self.recurrent_hidden_states = torch.zeros(
             num_steps + 1, num_processes, recurrent_hidden_state_size)
-        self.rewards = torch.zeros(num_steps, num_processes, 1)
-        self.value_preds = torch.zeros(num_steps + 1, num_processes, 1)
-        self.returns = torch.zeros(num_steps + 1, num_processes, 1)
+        self.rewards = torch.zeros(num_steps, num_processes, reward_dim)
+        self.reward_dim = reward_dim
+        self.value_preds = torch.zeros(num_steps + 1, num_processes, reward_dim)
+        self.returns = torch.zeros(num_steps + 1, num_processes, reward_dim)
         self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
         self.dice_deps = torch.zeros(num_steps, num_processes, 1)
         if action_space.__class__.__name__ == 'Discrete':
@@ -55,6 +56,7 @@ class RolloutStorage(object):
         self.action_log_probs[self.step] = action_log_probs
         self.value_preds[self.step].copy_(value_preds)
         # print(self.rewards[self.step], rewards)
+        # print(self.rewards[self.step].size(), rewards.size())
         self.rewards[self.step].copy_(rewards)
         self.masks[self.step + 1].copy_(masks)
         self.bad_masks[self.step + 1].copy_(bad_masks)
@@ -103,10 +105,34 @@ class RolloutStorage(object):
                                                                   1] * gae
                     self.returns[step] = gae + self.value_preds[step]
             else:
+                gamma2 = 0.995
+                # gamma = torch.tensor([gamma] + [0.] * (self.reward_dim - 1), dtype=torch.float)
                 self.returns[-1] = next_value
-                for step in reversed(range(self.rewards.size(0))):
-                    self.returns[step] = self.returns[step + 1] * \
-                        gamma * self.masks[step + 1] + self.rewards[step]
+                # print(next_value, self.rewards[-1])
+                # print(self.rewards.size(0))
+                for step in reversed(range(self.rewards.size()[0])):
+                    # print(self.rewards[step], self.masks[step + 1])
+                    # print(self.returns[step + 1].size())
+                    # print(self.rewards[step].size())
+                    # print(self.rewards[step, :, 1:].size())
+                    # print(self.returns[step, :, 0].size())
+                    # print(torch.square(self.rewards[step, :, 1:] - self.returns[step, :, 0]).size())
+                    # print(torch.mul(self.returns[step + 1, :, 1:], self.masks[step + 1]).size())
+                    # print(torch.mul(self.returns[step + 1], self.masks[step + 1]).size())
+                    self.returns[step, :, 0] = gamma * torch.mul(self.returns[step + 1, :, 0],
+                                                                 self.masks[step + 1, :, 0]) + self.rewards[step, :, 0]
+                    self.returns[step, :, 1:] = self.rewards[step, :, 1:] + gamma2 * torch.mul(
+                        self.returns[step + 1, :, 1:], self.masks[step + 1])
+                    # self.returns[step, :, 1:] = torch.square(
+                    #     self.rewards[step, :, 1:] - self.returns[step, :, :1]) + gamma2 * torch.mul(
+                    #     self.returns[step + 1, :, 1:], self.masks[step + 1])
+                    # if any(self.rewards[step] > 0.):
+                    #     print(self.rewards[step])
+                    #     print(self.returns[step])
+                if self.reward_dim > 1:
+                    for step in range(1, self.rewards.size()[0]):
+                        self.returns[step, :, 1:] = self.returns[step - 1, :, 1:] * self.masks[step, :] + \
+                                                    self.returns[step, :, 1:] * (1 - self.masks[step, :])
         # if dice_lambda is not None:
         #     self.compute_dice_deps(dice_lambda)
 

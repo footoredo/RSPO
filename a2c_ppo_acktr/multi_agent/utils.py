@@ -3,14 +3,195 @@ import torch
 import os
 import pathlib
 
+from a2c_ppo_acktr.storage import RolloutStorage
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans, SpectralClustering
 
 
-def tsne(v, h=None, s=None, pdf=False):
-    v_embedded = TSNE(n_components=2).fit_transform(v)
+def reseed(seed, phrase):
+    import hashlib
+    m = hashlib.sha1()
+    m.update(seed.to_bytes(2, "big"))
+    m.update(phrase.encode())
+    return int.from_bytes(m.digest()[:2], "big")
+
+
+def save_gif(images, save_path, fps):
+    import imageio
+    imageio.mimwrite(save_path, images, fps=fps)
+
+
+def to_numpy(data):
+    if type(data) == list:
+        data = np.array(data)
+    elif type(data) == torch.Tensor:
+        data = data.numpy()
+    elif type(data) == np.ndarray:
+        return data
+    else:
+        raise NotImplementedError("Unrecognizable data type {}".format(type(data)))
+
+
+def jointplot(data1, data2, save_path=None):
+    data1 = to_numpy(data1).reshape(-1)
+    data2 = to_numpy(data2).reshape(-1)
+    df = pd.DataFrame(dict(x=data1, y=data2))
+    sns.jointplot(data=df, x="x", y="y", kind="kde", xlim=(0, 350), ylim=(0.0, 6.0))
+    # sns.jointplot(data=df, x="x", y="y", kind="kde")
+    if save_path is None:
+        plt.show()
+    else:
+        plt.savefig(save_path)
+
+
+def displot(data):
+    data = to_numpy(data)
+    df = pd.DataFrame(dict(x=data.reshape(-1)))
+    sns.displot(df, x="x")
+    plt.show()
+
+
+def load_actor_critic(actor_critic, load_dir, agent_name, load_step=None):
+    if load_step is not None:
+        load_path = os.path.join(load_dir, agent_name, "update-{}".format(load_step), "model.obj")
+    else:
+        load_path = os.path.join(load_dir, agent_name, "model.obj")
+    # print(load_path)
+    actor_critic.load_state_dict(torch.load(load_path))
+
+
+def get_agent(args, obs_space, input_structure, act_space, save_dir, n_ref=0):
+    from a2c_ppo_acktr import algo
+    from a2c_ppo_acktr.model import Policy, AttentionBase, LinearBase
+    if args.use_attention:
+        actor_critic = Policy(
+            obs_space.shape,
+            act_space,
+            AttentionBase,
+            base_kwargs={'recurrent': args.recurrent_policy, 'input_structure': input_structure})
+    elif args.use_linear:
+        actor_critic = Policy(
+            obs_space.shape,
+            act_space,
+            LinearBase)
+    else:
+        actor_critic = Policy(
+            obs_space.shape,
+            act_space,
+            base_kwargs={'recurrent': args.recurrent_policy,
+                         'critic_dim': n_ref + 1})
+
+    if args.algo == 'a2c':
+        agent = algo.A2C_ACKTR(
+            actor_critic,
+            args.value_loss_coef,
+            args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            alpha=args.alpha,
+            max_grad_norm=args.max_grad_norm)
+    elif args.algo == 'ppo':
+        agent = algo.PPO(
+            actor_critic,
+            args.clip_param,
+            args.ppo_epoch,
+            args.num_mini_batch,
+            args.value_loss_coef,
+            args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            max_grad_norm=args.max_grad_norm,
+            clip_grad_norm=not args.no_grad_norm_clip,
+            task=args.task,
+            direction=args.direction,
+            save_dir=save_dir,
+            args=args
+        )
+    elif args.algo == 'acktr':
+        agent = algo.A2C_ACKTR(
+            actor_critic, args.value_loss_coef, args.entropy_coef, acktr=True)
+    elif args.algo == 'loaded-dice':
+        agent = algo.LoadedDiCE(
+            actor_critic,
+            args.dice_epoch,
+            args.num_mini_batch,
+            args.value_loss_coef,
+            args.entropy_coef,
+            args.dice_lambda,
+            args.episode_steps,
+            args.dice_task,
+            lr=args.lr,
+            eps=args.eps,
+            save_dir=save_dir
+        )
+    elif args.algo == 'hessian':
+        agent = algo.Hessian(
+            actor_critic,
+            args.clip_param,
+            args.ppo_epoch,
+            args.num_mini_batch,
+            args.value_loss_coef,
+            args.entropy_coef,
+            lr=args.lr,
+            eps=args.eps,
+            max_grad_norm=args.max_grad_norm,
+            clip_grad_norm=not args.no_grad_norm_clip,
+            task=args.task,
+            direction=args.direction,
+            args=args
+        )
+    else:
+        raise ValueError("algo {} not supported".format(args.algo))
+    return actor_critic, agent
+
+
+def calc_sim(direc1, direc2):
+    sim = direc1 @ direc2 / np.linalg.norm(direc1) / np.linalg.norm(direc2)
+    return sim
+
+
+def extract_trajectory(rollout: RolloutStorage):
+    length = rollout.actions.size()[0]
+    width = rollout.actions.size()[1]
+
+    trajectories = []
+    cur_traj = []
+    for i in range(width):
+        for j in range(length):
+            obs = rollout.obs[j, i]
+            act = rollout.actions[j, i]
+            rew = rollout.rewards[j, i]
+            cur_traj.append((obs, act, rew))
+            if rollout.masks[j, i] < 0.5:
+                trajectories.append(cur_traj)
+                cur_traj = []
+    return trajectories
+
+
+def barred_argmax(vec, threshold=1e-2):
+    ret = []
+    for i in range(vec.size()[0]):
+        top2 = torch.topk(vec[i], 2)
+        if top2.values[0] > top2.values[1] + threshold:
+            ret.append(top2.indices[0])
+        else:
+            ret.append(-1)
+    return torch.tensor(ret)
+
+
+def cluster(data, k):
+    X = np.array(data)
+    clusters = SpectralClustering(n_clusters=k).fit(X)
+    return clusters
+
+
+def tsne(v, h=None, s=None, pdf=False, **kwargs):
+    print(kwargs)
+    v_embedded = TSNE(n_components=2, **kwargs).fit_transform(v)
     xs = v_embedded[:, 0]
     ys = v_embedded[:, 1]
     hs = h[:] if h is not None else [np.linalg.norm(_) for _ in v]
@@ -26,6 +207,12 @@ def tsne(v, h=None, s=None, pdf=False):
         plt.show()
 
 
+def get_hessian(net, obj):
+    g = flat_view(ggrad(net, obj), net)
+    h = [flat_view(ggrad(net, _g), net) for _g in g]
+    return torch.stack(h, dim=0)
+
+
 def ggrad(net, obj):
     return torch.autograd.grad(obj, net.parameters(), create_graph=True, allow_unused=True)
 
@@ -33,16 +220,26 @@ def ggrad(net, obj):
 def net_add(net, vec):
     s = 0
     for p in net.parameters():
+        # print(p)
         l = p.view(-1).size()[0]
         p.data += vec[s:s + l].view(p.size())
+        s += l
+        # print(vec[s:s + l].view(p.size()))
         # print(p)
 
 
-def flat_view(grads):
+def flat_view(grads, net=None):
     flat_gs = []
-    for g in grads:
+    sizes = []
+    if net is not None:
+        for p in net.parameters():
+            sizes.append(p.view(-1).size())
+    # print(grads, net)
+    for i, g in enumerate(grads):
         if g is not None:
             flat_gs.append(g.view(-1))
+        elif net is not None:
+            flat_gs.append(torch.zeros(sizes[i]))
     return torch.cat(flat_gs, dim=0)
 
 

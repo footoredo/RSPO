@@ -16,7 +16,7 @@ class Environment(mp.Process):
         self.logger = logger
 
         self.args = args
-        self.seed = args.seed + self.env_id if args.seed is not None else None
+        self.seed = reseed(args.seed, "env-{}".format(self.env_id))
         self.num_steps = args.num_steps
         self.num_envs = args.num_processes
         self.num_agents = args.num_agents
@@ -25,6 +25,7 @@ class Environment(mp.Process):
         self.num_env_steps = args.num_env_steps // args.num_processes
         self.reseed_step = args.reseed_step // args.num_processes if args.reseed_step is not None else None
         self.reseed_z = args.reseed_z
+        self.ref = args.use_reference
         self.dtype = np.float32
 
         self.env = env
@@ -35,15 +36,16 @@ class Environment(mp.Process):
         self.act_shm = act_shm
         self.obs_locks = obs_locks
         self.act_locks = act_locks
+
         self.np_random = np.random.RandomState(seed=self.seed)
 
-    def reseed(self):
-        seed = None
-        for iz in range(self.reseed_z):
-            seed = self.np_random.randint(10000)
-        seed += self.reseed_step
-        self.env.seed(seed)
-        self.log("reseed with seed {}".format(seed))
+    def reseed(self, step, z):
+        _seed = None
+        for iz in range(z):
+            _seed = self.np_random.tomaxint() & ((1 << 32) - 1)
+            self.env.seed(_seed)
+        self.log("reseed with seed {}".format(_seed))
+        return _seed
 
     def log(self, msg):
         self.logger("Environment-{}: {}".format(self.env_id, msg))
@@ -51,6 +53,7 @@ class Environment(mp.Process):
     def write(self, place, obs, reward, done):
         obs = np.array(obs, dtype=self.dtype)
         # self.log(obs.shape[0])
+        # print(obs.shape[0], len(place))
         np.copyto(place[:obs.shape[0]], obs)
         place[obs.shape[0]] = reward
         place[obs.shape[0] + 1] = done
@@ -58,6 +61,9 @@ class Environment(mp.Process):
     def run(self):
         env = self.env
         args = self.args
+        # ref = self.ref
+        ref = False
+        reset_every = args.num_steps
         # print(env.seed)
         env.seed(self.seed)
         # acquire_all_locks(self.obs_locks)
@@ -67,8 +73,13 @@ class Environment(mp.Process):
             reward_filters = {agent: RewardFilter(reward_filters[agent], shape=(), gamma=args.gamma, clip=False)
                               for agent in self.agents}
 
-        if self.reseed_step is not None and 0 == self.reseed_step:
-            self.reseed()
+        if self.reseed_step is not None and 0 >= self.reseed_step:
+            self.reseed(0, self.reseed_z)
+
+        last_seed = None
+        if ref:
+            last_seed = self.reseed(0, 1)
+            self.np_random.seed(last_seed)
 
         init_obs = env.reset()
         # self.log(init_obs)
@@ -78,6 +89,7 @@ class Environment(mp.Process):
         offset = 0
         item_size = np.zeros(1, dtype=self.dtype).nbytes
         actions = dict()
+
         for agent in self.agents:
             actions[agent] = 0
 
@@ -101,6 +113,7 @@ class Environment(mp.Process):
         done = False
 
         for step in range(self.num_env_steps):
+            self.np_random.tomaxint()  # flush state for 1 step
             release_all_locks(self.obs_locks)
             # self.log(step)
             acquire_all_locks(self.act_locks)
@@ -112,9 +125,18 @@ class Environment(mp.Process):
             # acquire_all_locks(self.obs_locks)
 
             if self.reseed_step is not None and step + 1 == self.reseed_step:
-                self.reseed()
+                self.reseed(step + 1, self.reseed_z)
+
+            if ref and (step + 1) % reset_every == 0:
+                c = (step + 1) // reset_every
+                if c % 2 == 0:
+                    last_seed = self.reseed(step + 1, 1)
+                    self.np_random.seed(last_seed)
+                else:
+                    self.env.seed(last_seed)
 
             if done:
+                # self.log("done {}".format(step))
                 obs = env.reset()
                 for agent in self.agents:
                     reward_filters[agent].reset()
