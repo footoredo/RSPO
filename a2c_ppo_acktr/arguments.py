@@ -14,7 +14,7 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-def get_args():
+def get_args(add_extra_args_fn=None):
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
         '--algo', default='a2c', help='algorithm to use: a2c | ppo | acktr')
@@ -37,6 +37,28 @@ def get_args():
         type=int,
         default=10,
         help='parallel limit')
+    parser.add_argument(
+        '--train-in-turn',
+        dest='train_in_turn',
+        action="store_true",
+        default=True,
+        help='train in turn')
+    parser.add_argument(
+        '--no-train-in-turn',
+        dest='train_in_turn',
+        action="store_false",
+        help='don\'t train in turn')
+    parser.add_argument(
+        '--train',
+        dest='train',
+        action="store_true",
+        default=True,
+        help='train')
+    parser.add_argument(
+        '--no-train',
+        dest='train',
+        action="store_false",
+        help='don\'t train')
     parser.add_argument(
         '--gail-epoch', type=int, default=5, help='gail epochs (default: 5)')
     parser.add_argument(
@@ -61,6 +83,11 @@ def get_args():
         action='store_true',
         default=False,
         help='use generalized advantage estimation')
+    parser.add_argument(
+        '--num-refs',
+        type=int,
+        nargs="*",
+        help='number of reference agents (for loading)')
     parser.add_argument(
         '--use-reference',
         action='store_true',
@@ -154,6 +181,21 @@ def get_args():
         default=32,
         help='number of batches for ppo (default: 32)')
     parser.add_argument(
+        '--likelihood-threshold',
+        type=float,
+        nargs="*",
+        default=200.0,
+        help='likelihood threshold')
+    parser.add_argument(
+        '--use-likelihood-reward-cap',
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        '--likelihood-alpha',
+        type=float,
+        default=0.0,
+        help='likelihood alpha')
+    parser.add_argument(
         '--clip-param',
         type=float,
         default=0.2,
@@ -200,8 +242,33 @@ def get_args():
         default='./trained_models/',
         help='directory to save data (default: ./trained_models/)')
     parser.add_argument(
-        '--no-play',
+        '--config',
+        help='config file')
+    parser.add_argument(
+        '--ref-config',
+        help='reference config file')
+    parser.add_argument(
+        '--reject-sampling',
         action="store_true",
+        default=False)
+    parser.add_argument(
+        '--interpolate-rewards',
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        '--likelihood-gamma',
+        type=float,
+        default=0.995)
+    parser.add_argument(
+        '--play',
+        dest='play',
+        action="store_true",
+        default=True,
+        help='play after training')
+    parser.add_argument(
+        '--no-play',
+        dest='play',
+        action="store_false",
         help='don\'t play after training')
     parser.add_argument(
         '--gif',
@@ -287,7 +354,18 @@ def get_args():
         action='store_true',
         default=False,
         help='use a linear schedule on the learning rate')
-    args = parser.parse_args()
+
+    if add_extra_args_fn is not None:
+        parser = add_extra_args_fn(parser)
+
+    config_args = parser.parse_args()
+    pre_args = argparse.Namespace()
+
+    if config_args.config is not None:
+        import json
+        pre_args.__dict__.update(json.load(open(config_args.config)))
+
+    args = parser.parse_args(namespace=pre_args)
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 

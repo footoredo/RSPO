@@ -25,11 +25,13 @@ class Policy(nn.Module):
             else:
                 raise NotImplementedError
 
+        # print("21312312")
+
         self.base = base(obs_shape[0], **base_kwargs)
 
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
-            self.dist = Categorical(self.base.output_size, num_outputs)
+            self.dist = Categorical(self.base.output_size, num_outputs, is_ref=base_kwargs["is_ref"])
         elif action_space.__class__.__name__ == "Box":
             num_outputs = action_space.shape[0]
             self.dist = DiagGaussian(self.base.output_size, num_outputs)
@@ -54,6 +56,8 @@ class Policy(nn.Module):
     def act(self, inputs, rnn_hxs, masks, deterministic=False):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
+        # torch.set_printoptions(precision=3, sci_mode=False)
+        # print(dist.probs.detach())
 
         if deterministic:
             action = dist.mode()
@@ -76,9 +80,13 @@ class Policy(nn.Module):
 
     def get_probs(self, inputs, rnn_hxs, masks, action):
         value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        # print(actor_features)
         dist = self.dist(actor_features)
+        # print(dist)
 
         action_log_probs = dist.log_probs(action)
+
+        # print(action_log_probs)
 
         return torch.exp(action_log_probs)
 
@@ -362,23 +370,33 @@ class LinearBase(NNBase):
 
 
 class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh", critic_dim=1):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh", critic_dim=1, is_ref=False):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         if recurrent:
             num_inputs = hidden_size
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
+        # print(is_ref)
+
+        if is_ref:
+            init_ = lambda m:  m
+        else:
+            # print(111)
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                                   constant_(x, 0), np.sqrt(2))
         # init_ = lambda m: init(m, lambda x: nn.init.constant_(x, 0), lambda x: nn.init.constant_(x, 0), None)
         # init_ = lambda m:  m
 
         self.num_inputs = num_inputs
         activation_fn = ACTIVATION_FN[activation]
-
+        # if not is_ref:
+        #     print("B", critic_dim, num_inputs, hidden_size)
+        # print(init_)
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_size)), activation_fn(),
             init_(nn.Linear(hidden_size, hidden_size)), activation_fn())
+        # if not is_ref:
+        #     print("C", critic_dim, num_inputs, hidden_size)
 
         # self.actor = nn.Identity()
 

@@ -15,6 +15,7 @@ DY = [0., 0., -1., 1.]
 
 class PPO():
     def __init__(self,
+                 agent_name,
                  actor_critic,
                  clip_param,
                  ppo_epoch,
@@ -29,8 +30,10 @@ class PPO():
                  task=None,
                  direction=None,
                  save_dir=None,
-                 args=None):
+                 args=None,
+                 is_ref=False):
 
+        self.agent_name = agent_name
         self.actor_critic = actor_critic
 
         self.ref = args.ppo_use_reference
@@ -50,16 +53,26 @@ class PPO():
         self.task = task
         self.direction = direction
 
-        self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, betas=(0., 0.999))
+        self.is_ref = is_ref
+
+        if is_ref:
+            self.optimizer = None
+        else:
+            self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, betas=(0., 0.999))
 
         self.cnt = 0
         self.args = args
-        self.save_dir = mkdir2(save_dir, "ppo") if save_dir is not None else None
+
+        self.save_dir = mkdir2(save_dir, "ppo") if save_dir is not None and not is_ref else None
+
+        # if not is_ref:
+        #     print("PPO")
 
     def update(self, rollouts):
         self.cnt += 1
         # advantages = rollouts.returns[:-1]
-        advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
+        num_refs = rollouts.num_refs
+        advantages = rollouts.returns[:-1, :, :1 + num_refs] - rollouts.value_preds[:-1]
         # print(advantages.size())
         # print(advantages.mean(dim=[0, 1], keepdims=True).size())
         advantages = (advantages - advantages.mean(dim=[0, 1], keepdims=True)) / (
@@ -229,7 +242,7 @@ class PPO():
                 return_batch = return_batch.view(batch_size, -1)
                 masks_batch = masks_batch.view(batch_size, -1)
                 old_action_log_probs_batch = old_action_log_probs_batch.view(batch_size, -1)
-                adv_targ = adv_targ.view(batch_size, -1)[:, :1]
+                adv_targ = adv_targ.view(batch_size, -1)[:, :1 + num_refs]
                 # print(adv_targ)
 
                 # print(return_batch.size(), value_preds_batch.size(), adv_targ.size())
@@ -361,19 +374,30 @@ class PPO():
                     z_mask = 1.
 
                 action_loss_all = torch.mul(action_loss_all, torch.tensor(z_mask, dtype=torch.float))
+                interpolate_mask = torch.zeros((batch_size, 1 + num_refs))
+                interpolate_mask[:, 0] = 1.
 
                 selected_indices = None
                 if self.args.use_reference:
                     choose_size = int(batch_size * 0.5)
-                    criterion = return_batch[:, 1:]
-                    si = list(filter(lambda x: return_batch[x, 0] > 0., range(batch_size)))
+                    criterion = return_batch[:, 1 + num_refs:]
+                    # si = list(filter(lambda x: return_batch[x, 0] > 0., range(batch_size)))
+                    si = list(range(batch_size))
                     cn = criterion.numpy()
-                    if e == 0 and mini_batch_cnt == 0:
+                    plot = False
+                    if e == 0 and mini_batch_cnt == 0 and plot:
                         # si = list(range(batch_size))
                         # displot([cn[i] for i in filter(lambda x: return_batch[x, 0] > 0., range(batch_size))])
                         # displot(return_batch[:, 0])
-                        jointplot(cn[si], return_batch[:, 0].numpy()[si],
-                                  save_path=os.path.join(self.save_dir, "{}.png".format(self.cnt)))
+                        # print(cn.shape[1])
+                        for cni in range(num_refs):
+                            save_dir = mkdir2(self.save_dir, "ref-{}".format(cni))
+                            save_path = os.path.join(save_dir, "{}.png".format(self.cnt))
+                            save_path = None
+                            # jointplot(cn[si][:, cni], return_batch[:, 0].numpy()[si],
+                            #           save_path=save_path, title="agent-{} ref-{}".format(self.agent_name, cni))
+                            jointplot(cn[si][:, cni], return_batch[:, 0].numpy()[si],
+                                      save_path=save_path, title="agent-{} ref-{}".format(self.agent_name, cni))
                     pool = cn[si]
                     # from sklearn.mixture import GaussianMixture
                     # mixture = GaussianMixture(n_components=2).fit(pool.reshape(-1, 1))
@@ -384,12 +408,16 @@ class PPO():
                     # else:
                     #     lim = min(mixture.means_.mean(), 150.)
                     # print("lim:", lim)
-                    lim = 100.
+                    lim = self.args.likelihood_threshold
+                    if type(lim) == list:
+                        lim = np.array(lim)
                     # criterion = torch.square(return_batch[:, 1:] - return_batch[:, 0])
-                    indices = [torch.argsort(criterion[:, i]) for i in range(return_batch.size()[1] - 1)]
-                    # print(criterion[indices[0][batch_size - choose_size]][0])
-                    ranks = [torch.argsort(ind) for ind in indices]
-                    s = torch.stack(ranks, dim=1).min(dim=1).values
+
+                    # indices = [torch.argsort(criterion[:, i]) for i in range(return_batch.size()[1] - 1)]
+                    # # print(criterion[indices[0][batch_size - choose_size]][0])
+                    # ranks = [torch.argsort(ind) for ind in indices]
+                    # s = torch.stack(ranks, dim=1).min(dim=1).values
+
                     # print(return_batch[:5, 1], s[:5])
 
                     # topk = torch.topk(s, choose_size)
@@ -399,11 +427,28 @@ class PPO():
                     #                                 ranks[1][x] >= choose_size, range(batch_size)))
                     # print(len(indices))
 
-                    indices = list(filter(lambda x: cn[x, 0] > lim or return_batch[x, 0] < 0., range(batch_size)))
+                    # indices = list(filter(lambda x: all(cn[x] > lim) or return_batch[x, 0] < 0., range(batch_size)))
+                    # print(advantages.size())
+                    if self.args.interpolate_rewards:
+                        indices = list(range(batch_size))
+                        interpolate_mask = []
+                        for i in range(batch_size):
+                            if all(cn[i] > lim):
+                                interpolate_mask.append([1.] + [0.] * num_refs)
+                            else:
+                                interpolate_mask.append([0.] + (cn[i] <= lim).astype(np.float).tolist())
+                        interpolate_mask = torch.Tensor(interpolate_mask)
+                    elif not self.args.use_likelihood_reward_cap:
+                        indices = list(filter(lambda x: all(cn[x] > lim), range(batch_size)))
+                        # print(len(indices), batch_size)
+                    else:
+                        indices = list(range(batch_size))
+                    # indices = list(filter(lambda x: all(cn[x] > lim) or return_batch[x, 0].item() < 0., range(batch_size)))
 
                     # indices = list(range(batch_size))
 
                     selected_indices = indices
+
                     # action_loss_all = action_loss_all[indices]
                     # print(action_loss_all.size())
 
@@ -427,16 +472,16 @@ class PPO():
                     value_pred_clipped = value_preds_batch + \
                         (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
                     # print(value_pred_clipped.size())
-                    value_losses = (values - return_batch).pow(2)
+                    value_losses = (values - return_batch[:, :1 + num_refs]).pow(2)
                     value_losses_clipped = (
-                        value_pred_clipped - return_batch).pow(2)
-                    value_loss_all = 0.5 * torch.max(value_losses,
-                                                 value_losses_clipped)
+                        value_pred_clipped - return_batch[:, :1 + num_refs]).pow(2)
+                    value_loss_all = 0.5 * torch.max(value_losses, value_losses_clipped)
                 else:
                     # print(1)
-                    value_loss_all = 0.5 * (return_batch - values).pow(2)
+                    value_loss_all = 0.5 * (return_batch[:, :1 + num_refs] - values).pow(2)
 
-                value_loss_all = value_loss_all[:, :1]
+                if not self.args.interpolate_rewards:
+                    value_loss_all = value_loss_all[:, :1]
                 # print(value_loss_all[:5])
                 # print(obs_batch[0])
                 # print(value_loss_all.size())
@@ -446,13 +491,16 @@ class PPO():
                 #     fgs.append(fg)
 
                 if selected_indices is not None:
-                    # print(len(selected_indices), batch_size)
+                    # print(self.agent_name, len(selected_indices), batch_size)
                     value_loss_all = value_loss_all[selected_indices]
                     action_loss_all = action_loss_all[selected_indices]
                     # action_loss_all = -action_loss_all
                     # for i in selected_indices:
                     #     action_loss_all[i] = -0.1 * action_loss_all[i]
                     dist_entropy_all = dist_entropy_all[selected_indices]
+
+                # print(action_loss_all.size(), interpolate_mask.size())
+                action_loss_all = torch.mul(action_loss_all, interpolate_mask).sum(dim=-1)
 
                 if not self.ref:
                     value_loss = value_loss_all.mean()
@@ -496,7 +544,7 @@ class PPO():
                     action_loss_mask = 1.
 
                     self.optimizer.zero_grad()
-                    (value_loss * self.value_loss_coef + action_loss_mask * action_loss -
+                    (value_loss * self.value_loss_coef + rollouts.action_loss_coef * action_loss_mask * action_loss -
                      dist_entropy * self.entropy_coef).backward()
 
                     total_norm = 0.

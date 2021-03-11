@@ -8,16 +8,18 @@ def _flatten_helper(T, N, _tensor):
 
 class RolloutStorage(object):
     def __init__(self, num_steps, num_processes, obs_shape, action_space,
-                 recurrent_hidden_state_size, reward_dim=1):
+                 recurrent_hidden_state_size, num_refs=0, num_value_refs=0):
         self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
         self.recurrent_hidden_states = torch.zeros(
             num_steps + 1, num_processes, recurrent_hidden_state_size)
-        self.rewards = torch.zeros(num_steps, num_processes, reward_dim)
-        self.reward_dim = reward_dim
-        self.value_preds = torch.zeros(num_steps + 1, num_processes, reward_dim)
-        self.returns = torch.zeros(num_steps + 1, num_processes, reward_dim)
+        self.rewards = torch.zeros(num_steps, num_processes, 1 + num_refs * 2)
+        self.num_refs = num_refs
+        self.num_value_refs = num_value_refs
+        self.value_preds = torch.zeros(num_steps + 1, num_processes, 1 + num_value_refs)
+        self.returns = torch.zeros(num_steps + 1, num_processes, 1 + num_refs * 2)
         self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
         self.dice_deps = torch.zeros(num_steps, num_processes, 1)
+        self.action_loss_coef = 1.0
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
         else:
@@ -74,7 +76,9 @@ class RolloutStorage(object):
                         use_gae,
                         gamma,
                         gae_lambda,
+                        likelihood_gamma,
                         use_proper_time_limits=True):
+        assert not use_proper_time_limits and not use_gae, "Not Implemented"
         if use_proper_time_limits:
             if use_gae:
                 self.value_preds[-1] = next_value
@@ -105,9 +109,16 @@ class RolloutStorage(object):
                                                                   1] * gae
                     self.returns[step] = gae + self.value_preds[step]
             else:
-                gamma2 = 0.995
+                # print("GAEGEAGEAGEAEG")
+                gamma2 = likelihood_gamma
                 # gamma = torch.tensor([gamma] + [0.] * (self.reward_dim - 1), dtype=torch.float)
-                self.returns[-1] = next_value
+                # self.returns[-1] = next_value
+                self.returns[-1].zero_()
+                num_refs = self.num_refs
+                if num_refs == self.num_value_refs:
+                    self.returns[-1, :, :1 + num_refs] = next_value[:, :1 + num_refs]
+                else:
+                    self.returns[-1, :, 0] = next_value[:, 0]
                 # print(next_value, self.rewards[-1])
                 # print(self.rewards.size(0))
                 for step in reversed(range(self.rewards.size()[0])):
@@ -119,20 +130,23 @@ class RolloutStorage(object):
                     # print(torch.square(self.rewards[step, :, 1:] - self.returns[step, :, 0]).size())
                     # print(torch.mul(self.returns[step + 1, :, 1:], self.masks[step + 1]).size())
                     # print(torch.mul(self.returns[step + 1], self.masks[step + 1]).size())
-                    self.returns[step, :, 0] = gamma * torch.mul(self.returns[step + 1, :, 0],
-                                                                 self.masks[step + 1, :, 0]) + self.rewards[step, :, 0]
-                    self.returns[step, :, 1:] = self.rewards[step, :, 1:] + gamma2 * torch.mul(
-                        self.returns[step + 1, :, 1:], self.masks[step + 1])
+                    self.returns[step, :, :1 + num_refs] = \
+                        gamma * torch.mul(self.returns[step + 1, :, :1 + num_refs], self.masks[step + 1]) + \
+                        self.rewards[step, :, :1 + num_refs]
+                    self.returns[step, :, 1 + num_refs:] = \
+                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs:], self.masks[step + 1]) + \
+                        self.rewards[step, :, 1 + num_refs:]
                     # self.returns[step, :, 1:] = torch.square(
                     #     self.rewards[step, :, 1:] - self.returns[step, :, :1]) + gamma2 * torch.mul(
                     #     self.returns[step + 1, :, 1:], self.masks[step + 1])
                     # if any(self.rewards[step] > 0.):
                     #     print(self.rewards[step])
                     #     print(self.returns[step])
-                if self.reward_dim > 1:
+                if num_refs > 0:
                     for step in range(1, self.rewards.size()[0]):
-                        self.returns[step, :, 1:] = self.returns[step - 1, :, 1:] * self.masks[step, :] + \
-                                                    self.returns[step, :, 1:] * (1 - self.masks[step, :])
+                        self.returns[step, :, 1 + num_refs:] = \
+                            self.returns[step - 1, :, 1 + num_refs:] * self.masks[step] + \
+                            self.returns[step, :, 1 + num_refs:] * (1 - self.masks[step])
         # if dice_lambda is not None:
         #     self.compute_dice_deps(dice_lambda)
 

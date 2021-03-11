@@ -12,6 +12,37 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans, SpectralClustering
 
 
+def get_timestamp():
+    from datetime import datetime
+    import binascii
+    return "{}#{}".format(datetime.now().isoformat(), binascii.hexlify(os.urandom(2)).decode())
+
+
+def make_env(env_name, steps):
+    if steps is None:
+        steps = 32
+    if env_name == "simple-tag":
+        from pettingzoo.mpe import simple_tag_v1
+        return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=steps)
+    elif env_name == "simple":
+        from pettingzoo.mpe import simple_v1
+        return simple_v1.parallel_env(num_targets=2, max_frames=steps, depth=1, reward_scale=1., size_scale=100.)
+    elif env_name == "simple-key":
+        from pettingzoo.mpe import simple_key_v1
+        return simple_key_v1.parallel_env(max_frames=steps)
+    elif env_name == "simple-more":
+        from pettingzoo.mpe import simple_more_v1
+        return simple_more_v1.parallel_env(num_targets=5, reward_scales=1., size_scales=1., max_frames=steps)
+    elif env_name == "simple-more-3":
+        from pettingzoo.mpe import simple_more_v1
+        return simple_more_v1.parallel_env(num_targets=3, reward_scales=1., size_scales=1., max_frames=steps)
+    elif env_name == 'stag-hunt-gw':
+        from pettingzoo.mappo_ssd import stag_hunt_gw_v1
+        return stag_hunt_gw_v1.parallel_env(max_frames=steps, share_reward=False, shape_reward=False, shape_beta=0.8)
+    else:
+        raise NotImplementedError(env_name)
+
+
 def reseed(seed, phrase):
     import hashlib
     m = hashlib.sha1()
@@ -36,12 +67,13 @@ def to_numpy(data):
         raise NotImplementedError("Unrecognizable data type {}".format(type(data)))
 
 
-def jointplot(data1, data2, save_path=None):
+def jointplot(data1, data2, save_path=None, title="likelihood-return"):
     data1 = to_numpy(data1).reshape(-1)
     data2 = to_numpy(data2).reshape(-1)
     df = pd.DataFrame(dict(x=data1, y=data2))
-    sns.jointplot(data=df, x="x", y="y", kind="kde", xlim=(0, 350), ylim=(0.0, 6.0))
+    sns.jointplot(data=df, x="x", y="y", kind="kde", xlim=(0, 500), ylim=(0.0, 2.))
     # sns.jointplot(data=df, x="x", y="y", kind="kde")
+    plt.title(title)
     if save_path is None:
         plt.show()
     else:
@@ -57,16 +89,17 @@ def displot(data):
 
 def load_actor_critic(actor_critic, load_dir, agent_name, load_step=None):
     if load_step is not None:
-        load_path = os.path.join(load_dir, agent_name, "update-{}".format(load_step), "model.obj")
+        load_path = os.path.join(load_dir, str(agent_name), "update-{}".format(load_step), "model.obj")
     else:
-        load_path = os.path.join(load_dir, agent_name, "model.obj")
+        load_path = os.path.join(load_dir, str(agent_name), "model.obj")
     # print(load_path)
     actor_critic.load_state_dict(torch.load(load_path))
 
 
-def get_agent(args, obs_space, input_structure, act_space, save_dir, n_ref=0):
+def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir, n_ref=0, is_ref=False):
     from a2c_ppo_acktr import algo
     from a2c_ppo_acktr.model import Policy, AttentionBase, LinearBase
+
     if args.use_attention:
         actor_critic = Policy(
             obs_space.shape,
@@ -79,11 +112,19 @@ def get_agent(args, obs_space, input_structure, act_space, save_dir, n_ref=0):
             act_space,
             LinearBase)
     else:
+        # if not is_ref:
+        #     print("A")
         actor_critic = Policy(
             obs_space.shape,
             act_space,
             base_kwargs={'recurrent': args.recurrent_policy,
-                         'critic_dim': n_ref + 1})
+                         'critic_dim': n_ref + 1,
+                         'is_ref': is_ref})
+        # if not is_ref:
+        #     print("B")
+
+    # if not is_ref:
+    #     print("!!@!@")
 
     if args.algo == 'a2c':
         agent = algo.A2C_ACKTR(
@@ -96,6 +137,7 @@ def get_agent(args, obs_space, input_structure, act_space, save_dir, n_ref=0):
             max_grad_norm=args.max_grad_norm)
     elif args.algo == 'ppo':
         agent = algo.PPO(
+            agent_name,
             actor_critic,
             args.clip_param,
             args.ppo_epoch,
@@ -109,7 +151,8 @@ def get_agent(args, obs_space, input_structure, act_space, save_dir, n_ref=0):
             task=args.task,
             direction=args.direction,
             save_dir=save_dir,
-            args=args
+            args=args,
+            is_ref=is_ref
         )
     elif args.algo == 'acktr':
         agent = algo.A2C_ACKTR(
@@ -243,7 +286,47 @@ def flat_view(grads, net=None):
     return torch.cat(flat_gs, dim=0)
 
 
-def plot_statistics(statistics, keyword):
+def plot_agent_statistics(statistics, keyword, ref_indices=None):
+    import seaborn as sns
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    if keyword != "likelihood":
+        iters = []
+        values = []
+
+        for it, v in statistics[keyword]:
+            iters.append(it)
+            values.append(v)
+
+        df = pd.DataFrame(dict(iteration=iters, value=values))
+        fig, ax = plt.subplots()
+        sns.lineplot(x="iteration", y="value", data=df, ax=ax)
+        ax.set_title(keyword)
+        plt.tight_layout()
+        plt.show()
+    else:
+        iters = []
+        values = []
+        refs = []
+        for it, v in statistics[keyword]:
+            # print(v.shape)
+            if ref_indices is None:
+                ref_indices = range(v.shape[0])
+            for i in ref_indices:
+                iters.append(it)
+                values.append(v[i])
+                refs.append("ref-{}".format(i))
+
+        df = pd.DataFrame(dict(iteration=iters, value=values, ref=refs))
+        fig, ax = plt.subplots()
+        sns.lineplot(x="iteration", y="value", hue="ref", data=df, ax=ax)
+        ax.set_title(keyword)
+        plt.tight_layout()
+        plt.show()
+
+
+def plot_statistics(statistics, keyword, max_iter=None):
     import seaborn as sns
     import pandas as pd
     import matplotlib.pyplot as plt
@@ -257,9 +340,10 @@ def plot_statistics(statistics, keyword):
     for agent in agents:
         s = statistics[agent][keyword]
         for it, v in s:
-            iters.append(it)
-            values.append(v)
-            names.append(agent)
+            if max_iter is None or it <= max_iter:
+                iters.append(it)
+                values.append(v)
+                names.append(agent)
 
     df = pd.DataFrame(dict(iteration=iters, value=values, agent=names))
     fig, ax = plt.subplots()

@@ -56,11 +56,14 @@ def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
 
 
 def init(module, weight_init, bias_init, gain=None):
+    # print("init A", module, weight_init)
     if gain is not None:
         weight_init(module.weight.data, gain=gain)
     else:
         weight_init(module.weight.data)
+    # print("init B", module)
     bias_init(module.bias.data)
+    # print("init C", module)
     return module
 
 

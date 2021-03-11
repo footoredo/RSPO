@@ -20,6 +20,7 @@ class Environment(mp.Process):
         self.num_steps = args.num_steps
         self.num_envs = args.num_processes
         self.num_agents = args.num_agents
+        self.episode_steps = args.episode_steps
         self.reward_norm = args.reward_normalization
         self.batch_size = self.num_steps * self.num_envs
         self.num_env_steps = args.num_env_steps // args.num_processes
@@ -59,6 +60,8 @@ class Environment(mp.Process):
         place[obs.shape[0] + 1] = done
 
     def run(self):
+        if self.num_env_steps == 0:
+            return
         env = self.env
         args = self.args
         # ref = self.ref
@@ -111,39 +114,40 @@ class Environment(mp.Process):
 
         self.main_conn.recv()
         done = False
-
-        for step in range(self.num_env_steps):
+        step = 0
+        while True:
             self.np_random.tomaxint()  # flush state for 1 step
             release_all_locks(self.obs_locks)
-            # self.log(step)
-            acquire_all_locks(self.act_locks)
-            for i, agent in enumerate(self.agents):
-                actions[agent] = self.act_shm.buf[self.env_id * self.num_agents + i]
-                # print(np.isnan(actions[agent]))
-                # self.log("step {} from {} - act {}".format(step, agent, actions[agent]))
-            # release_all_locks(self.act_locks)
-            # acquire_all_locks(self.obs_locks)
 
             if self.reseed_step is not None and step + 1 == self.reseed_step:
                 self.reseed(step + 1, self.reseed_z)
 
-            if ref and (step + 1) % reset_every == 0:
-                c = (step + 1) // reset_every
-                if c % 2 == 0:
-                    last_seed = self.reseed(step + 1, 1)
-                    self.np_random.seed(last_seed)
-                else:
-                    self.env.seed(last_seed)
-
             if done:
-                # self.log("done {}".format(step))
+                # acquire_all_locks(self.act_locks)
+                if self.main_conn.recv():
+                    break
                 obs = env.reset()
                 for agent in self.agents:
                     reward_filters[agent].reset()
                 rewards = {agent: 0. for agent in self.agents}
                 dones = {agent: False for agent in self.agents}
             else:
+                acquire_all_locks(self.act_locks)
+                for i, agent in enumerate(self.agents):
+                    actions[agent] = self.act_shm.buf[self.env_id * self.num_agents + i]
+                    # print(np.isnan(actions[agent]))
+                    # self.log("step {} from {} - act {}".format(step, agent, actions[agent]))
                 obs, rewards, dones, _ = env.step(actions)
+            # release_all_locks(self.act_locks)
+            # acquire_all_locks(self.obs_locks)
+
+            # if ref and (step + 1) % reset_every == 0:
+            #     c = (step + 1) // reset_every
+            #     if c % 2 == 0:
+            #         last_seed = self.reseed(step + 1, 1)
+            #         self.np_random.seed(last_seed)
+            #     else:
+            #         self.env.seed(last_seed)
 
             not_done = False
             for i, agent in enumerate(self.agents):
@@ -151,5 +155,9 @@ class Environment(mp.Process):
                 self.write(obs_places[i], obs[agent], reward_filters[agent](rewards[agent]), dones[agent])
                 not_done = not_done or not dones[agent]
             done = not not_done
+
+            # self.log("step: {}, done: {}".format(step, done))
+
+            step += 1
 
         release_all_locks(self.obs_locks)

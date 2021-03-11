@@ -16,4 +16,4 @@ def main(path):
 
 
 if __name__ == "__main__":
-    main("./sync-results/ppo-simple-key-overlap/tests/2021-02-01T14:49:19.162587/agent_0/ppo")
+    main("./sync-results/stag-hunt-gw/no-fruit/2021-03-02T17:19:31.561786/0/ppo/ref-0")
