@@ -58,7 +58,8 @@ class PPO():
         if is_ref:
             self.optimizer = None
         else:
-            self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, betas=(0., 0.999))
+            # self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, betas=(0., 0.999))
+            self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
         self.cnt = 0
         self.args = args
@@ -72,7 +73,10 @@ class PPO():
         self.cnt += 1
         # advantages = rollouts.returns[:-1]
         num_refs = rollouts.num_refs
-        advantages = rollouts.returns[:-1, :, :1 + num_refs] - rollouts.value_preds[:-1]
+        if rollouts.num_refs == rollouts.num_value_refs:
+            advantages = rollouts.returns[:-1, :, :1 + num_refs] - rollouts.value_preds[:-1]
+        else:
+            advantages = rollouts.returns[:-1, :, 0] - rollouts.value_preds[:-1, :, 0]
         # print(advantages.size())
         # print(advantages.mean(dim=[0, 1], keepdims=True).size())
         advantages = (advantages - advantages.mean(dim=[0, 1], keepdims=True)) / (
@@ -381,16 +385,18 @@ class PPO():
                 if self.args.use_reference:
                     choose_size = int(batch_size * 0.5)
                     criterion = return_batch[:, 1 + num_refs:]
-                    # si = list(filter(lambda x: return_batch[x, 0] > 0., range(batch_size)))
-                    si = list(range(batch_size))
+                    si = list(filter(lambda x: return_batch[x, 0] > 0., range(batch_size)))
+                    # si = list(range(batch_size))
                     cn = criterion.numpy()
-                    plot = False
+                    plot = True
                     if e == 0 and mini_batch_cnt == 0 and plot:
                         # si = list(range(batch_size))
                         # displot([cn[i] for i in filter(lambda x: return_batch[x, 0] > 0., range(batch_size))])
                         # displot(return_batch[:, 0])
                         # print(cn.shape[1])
                         for cni in range(num_refs):
+                            if cni < 18:
+                                continue
                             save_dir = mkdir2(self.save_dir, "ref-{}".format(cni))
                             save_path = os.path.join(save_dir, "{}.png".format(self.cnt))
                             save_path = None
@@ -429,6 +435,7 @@ class PPO():
 
                     # indices = list(filter(lambda x: all(cn[x] > lim) or return_batch[x, 0] < 0., range(batch_size)))
                     # print(advantages.size())
+                    # print(1)
                     if self.args.interpolate_rewards:
                         indices = list(range(batch_size))
                         interpolate_mask = []
@@ -443,6 +450,7 @@ class PPO():
                         # print(len(indices), batch_size)
                     else:
                         indices = list(range(batch_size))
+                    # print(2)
                     # indices = list(filter(lambda x: all(cn[x] > lim) or return_batch[x, 0].item() < 0., range(batch_size)))
 
                     # indices = list(range(batch_size))

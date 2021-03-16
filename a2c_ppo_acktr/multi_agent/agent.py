@@ -295,6 +295,7 @@ class Agent(mp.Process):
                                                args.gae_lambda, args.likelihood_gamma, args.use_proper_time_limits)
                 # self.log("ready to update")
                 # valid_rollouts.action_loss_coef = 0.0 if efficiency < 0.1 else 1.0
+                # self.log("before update")
                 value_loss, action_loss, dist_entropy, grad_norm = agent.update(valid_rollouts)
                 valid_rollouts.step = 0
                 self.log("Update #{}, reward {}, likelihood {}, value_loss {}, action_loss {}, dist_entropy {}, grad_norm {}"
@@ -338,6 +339,63 @@ class Agent(mp.Process):
                 break
             obs, done = command
             # _, action, action_log_prob, recurrent_hidden_states = actor_critic.act(ts([obs]), recurrent_hidden_states, ts([[0.0] if done else [1.0]]))
+            if obs[2] != 0 or obs[3] != 0:
+                # if obs[0] > 0:
+                #     action = 2
+                # elif obs[1] > 0:
+                #     action = 0
+                # else:
+                #     action = 4
+                if obs[0] < 2:
+                    action = 3
+                elif obs[0] > 2:
+                    action = 2
+                elif obs[1] < 2:
+                    action = 1
+                elif obs[1] > 2:
+                    action = 0
+                else:
+                    action = 4
+                # if abs(obs[2]) > 0:
+                #     if obs[2] < -1:
+                #         action = 2
+                #     elif obs[2] == -1:
+                #         action = 4
+                #     else:
+                #         action = 3
+                # elif abs(obs[3]) > 0:
+                #     if obs[3] < -1:
+                #         action = 0
+                #     elif obs[3] == -1:
+                #         action = 4
+                #     else:
+                #         action = 1
+            else:
+                # action = 4
+                if abs(obs[4]) + abs(obs[5]) > 1:
+                    # if obs[4] <= -1 and obs[0] >= 2:
+                    #     action = 2
+                    # elif obs[4] >= 1 and obs[0] <= 2:
+                    #     action = 3
+                    # elif obs[5] <= -1 and obs[1] >= 2:
+                    #     action = 0
+                    # elif obs[5] >= 1 and obs[1] <= 2:
+                    #     action = 1
+                    # else:
+                    #     action = 4
+
+                    if abs(obs[4]) > abs(obs[5]) or obs[4] == obs[5] and np_random.rand() < 0.5:
+                        if obs[4] <= -1:
+                            action = 2
+                        else:
+                            action = 3
+                    else:
+                        if obs[5] <= -1:
+                            action = 0
+                        else:
+                            action = 1
+                else:
+                    action = 4
             strategy = actor_critic.get_strategy(ts([obs]), recurrent_hidden_states, ts([[0.0] if done else [1.0]])).detach().squeeze().numpy()
             action = np_random.choice(strategy.shape[0], p=strategy)
             # action = np.argmax(strategy)

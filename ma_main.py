@@ -212,6 +212,7 @@ def _run(args, logger):
 
     close_to = [0, 0, 0, 0, 0]
     gather_count = np.zeros((5, 5), dtype=int)
+    sum_reward = np.zeros(num_agents)
     if args.play:
         env.seed(np.random.randint(10000))
         obs = env.reset()
@@ -233,6 +234,8 @@ def _run(args, logger):
                 actions[agent] = main_agent_conns[i].recv()
                 # print(agent, actions[agent])
             obs, rewards, dones, infos = env.step(actions)
+            for i, agent in enumerate(env.agents):
+                sum_reward[i] += rewards[agent]
             if args.env_name == "stag-hunt-gw":
                 if env.env.agents[0].pos[0] == env.env.agents[1].pos[0] and \
                         env.env.agents[0].pos[1] == env.env.agents[1].pos[1]:
@@ -266,7 +269,7 @@ def _run(args, logger):
                 # print(infos[env.agents[0]])
                 if args.env_name[:6] == "simple":
                     close_to[np.argmin(infos[env.agents[0]])] += 1
-                if (not args.render) and (num_games >= args.num_games_after_training):
+                if num_games >= args.num_games_after_training or args.num_games_after_training == -1:
                     break
                 obs = env.reset()
                 dones = {agent: False for agent in env.agents}
@@ -282,6 +285,10 @@ def _run(args, logger):
     # print(close_to)
     result["close_to"] = close_to
     print(gather_count)
+    # import seaborn as sns
+    # sns.heatmap(gather_count)
+    # plt.show()
+    print(sum_reward / args.num_games_after_training)
 
     # print(result["statistics"][env.agents[0]]["likelihood"])
     # print(result["statistics"][env.agents[1]]["likelihood"])

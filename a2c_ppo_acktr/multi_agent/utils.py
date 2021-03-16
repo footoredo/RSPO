@@ -38,7 +38,7 @@ def make_env(env_name, steps):
         return simple_more_v1.parallel_env(num_targets=3, reward_scales=1., size_scales=1., max_frames=steps)
     elif env_name == 'stag-hunt-gw':
         from pettingzoo.mappo_ssd import stag_hunt_gw_v1
-        return stag_hunt_gw_v1.parallel_env(max_frames=steps, share_reward=False, shape_reward=False, shape_beta=0.8)
+        return stag_hunt_gw_v1.parallel_env(max_frames=steps, share_reward=False, shape_reward=False, shape_beta=0.8, gore=-2)
     else:
         raise NotImplementedError(env_name)
 
@@ -322,7 +322,7 @@ def plot_agent_statistics(statistics, keyword, ref_indices=None):
         fig, ax = plt.subplots()
         sns.lineplot(x="iteration", y="value", hue="ref", data=df, ax=ax)
         ax.set_title(keyword)
-        plt.tight_layout()
+        # plt.tight_layout()
         plt.show()
 
 
@@ -349,7 +349,7 @@ def plot_statistics(statistics, keyword, max_iter=None):
     fig, ax = plt.subplots()
     sns.lineplot(x="iteration", y="value", hue="agent", data=df, ax=ax)
     ax.set_title(keyword)
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.show()
 
 

@@ -78,7 +78,9 @@ class RolloutStorage(object):
                         gae_lambda,
                         likelihood_gamma,
                         use_proper_time_limits=True):
-        assert not use_proper_time_limits and not use_gae, "Not Implemented"
+        assert not use_proper_time_limits, "Not Implemented"
+        gamma2 = likelihood_gamma
+        num_refs = self.num_refs
         if use_proper_time_limits:
             if use_gae:
                 self.value_preds[-1] = next_value
@@ -101,20 +103,22 @@ class RolloutStorage(object):
             if use_gae:
                 self.value_preds[-1] = next_value
                 gae = 0
+                num_value_refs = self.num_value_refs
+                assert num_refs == num_value_refs
                 for step in reversed(range(self.rewards.size(0))):
-                    delta = self.rewards[step] + gamma * self.value_preds[
-                        step + 1] * self.masks[step +
-                                               1] - self.value_preds[step]
-                    gae = delta + gamma * gae_lambda * self.masks[step +
-                                                                  1] * gae
-                    self.returns[step] = gae + self.value_preds[step]
+                    delta = self.rewards[step, :, :1 + num_refs] + \
+                            gamma * self.value_preds[step + 1, :, :1 + num_refs] * self.masks[step + 1] - \
+                            self.value_preds[step, :, :1 + num_refs]
+                    gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
+                    self.returns[step, :, :1 + num_refs] = gae + self.value_preds[step]
+                    self.returns[step, :, 1 + num_refs:] = \
+                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs:], self.masks[step + 1]) + \
+                        self.rewards[step, :, 1 + num_refs:]
             else:
                 # print("GAEGEAGEAGEAEG")
-                gamma2 = likelihood_gamma
                 # gamma = torch.tensor([gamma] + [0.] * (self.reward_dim - 1), dtype=torch.float)
                 # self.returns[-1] = next_value
                 self.returns[-1].zero_()
-                num_refs = self.num_refs
                 if num_refs == self.num_value_refs:
                     self.returns[-1, :, :1 + num_refs] = next_value[:, :1 + num_refs]
                 else:
@@ -142,11 +146,11 @@ class RolloutStorage(object):
                     # if any(self.rewards[step] > 0.):
                     #     print(self.rewards[step])
                     #     print(self.returns[step])
-                if num_refs > 0:
-                    for step in range(1, self.rewards.size()[0]):
-                        self.returns[step, :, 1 + num_refs:] = \
-                            self.returns[step - 1, :, 1 + num_refs:] * self.masks[step] + \
-                            self.returns[step, :, 1 + num_refs:] * (1 - self.masks[step])
+            if num_refs > 0:
+                for step in range(1, self.rewards.size()[0]):
+                    self.returns[step, :, 1 + num_refs:] = \
+                        self.returns[step - 1, :, 1 + num_refs:] * self.masks[step] + \
+                        self.returns[step, :, 1 + num_refs:] * (1 - self.masks[step])
         # if dice_lambda is not None:
         #     self.compute_dice_deps(dice_lambda)
 
