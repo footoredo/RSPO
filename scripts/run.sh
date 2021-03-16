@@ -1,0 +1,3 @@
+#!/bin/sh
+
+python ma_main.py --algo=ppo --env-name=simple-key --num-processes=32 --num-agents=1 --num-steps=512 --episode-steps=32 --num-env-steps=5242880 --no-cuda --seed=$1 --num-mini-batch=8 --ppo-epoch=10 --reseed-step=-1 --reseed-z=7 --lr=3e-4 --value-loss-coef=0.5 --entropy-coef=0.05 --gamma=0.9 --gae-lambda=0.99 --save-interval=64 --save-dir="./sync-results/ppo-simple-key-overlap/tests" --load-dir="./results/ppo-simple/2020-12-09T17:22:49.027992" --load-step=32 --ref-load-dir "./sync-results/ppo-simple-key-overlap/first/final-$2" --ref-num-ref 0 --use-reference --direction=0 --guided-updates=0 > experiments/$3/dist-$2-$1.txt

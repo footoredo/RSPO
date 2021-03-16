@@ -104,4 +104,3 @@ trained_models/
 .fuse_hidden*
 /sync-results/
 /results/
-/ref-configs/
