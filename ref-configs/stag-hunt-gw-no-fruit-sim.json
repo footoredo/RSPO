@@ -1,0 +1,78 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T16:49:39.766017",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T16:49:39.766017",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T18:12:37.351917",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T18:12:37.351917",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T19:35:50.434268",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T19:35:50.434268",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T16:49:39.766017",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T16:49:39.766017",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T18:12:37.351917",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T18:12:37.351917",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T19:35:50.434268",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit/2021-03-03T19:35:50.434268",
+            "load_step": null,
+            "num_refs": 6,
+            "load_agent": "1"
+        }
+    ]
+}
