@@ -6,7 +6,7 @@ from multiprocessing import shared_memory
 
 from functools import partial
 
-from a2c_ppo_acktr.multi_agent import Agent, Environment
+from a2c_ppo_acktr.multi_agent import Agent, RefAgent, Environment
 
 
 from a2c_ppo_acktr.multi_agent.utils import *
@@ -41,66 +41,22 @@ def _run(args, logger):
     envs = []
     main_env_conns = []
 
-    obs_locks = []
-    act_locks = []
-
-    save_dir = mkdir2(args.save_dir, get_timestamp())
-    json.dump(vars(args), open(os.path.join(save_dir, "config.json"), "w"), indent=2)
-
-    for i in range(num_envs):
-        _obs_locks = []
-        _act_locks = []
-        for j in range(num_agents):
-            _obs_locks.append(mp.Event())
-            # _obs_locks[-1].set()
-            _act_locks.append(mp.Event())
-            # _act_locks[-1].set()
-        obs_locks.append(_obs_locks)
-        act_locks.append(_act_locks)
-
     _make_env = partial(make_env, args.env_name, args.episode_steps)
     env = _make_env()
-    assert num_agents == len(env.agents)
-    obs_buffer_size = 0
-    item_size = np.zeros(1, dtype=np.float32).nbytes
-    # print(item_size)
-    obs_indices = []
-    for agent in env.agents:
-        # print(env.observation_spaces[agent].shape)
-        next_obs_buffer_size = obs_buffer_size + item_size * num_envs * (env.observation_spaces[agent].shape[0] + 2)
-        # print(next_obs_buffer_size - obs_buffer_size)
-        obs_indices.append((obs_buffer_size, next_obs_buffer_size))
-        obs_buffer_size = next_obs_buffer_size
-
-    obs_shm = shared_memory.SharedMemory(create=True, size=obs_buffer_size)
-    act_shm = shared_memory.SharedMemory(create=True, size=num_envs * num_agents)
 
     input_structures = env.input_structures
-    # print("input_structures:", input_structures)
-
-    # print(len(env.agents))
-    # print(env.agents)
-
-    train_fn = no_train
-    if args.train:
-        if args.train_in_turn:
-            train_fn = train_in_turn
-        else:
-            train_fn = train_simultaneously
-
     if args.use_reference and args.ref_config is not None:
         ref_config = json.load(open(args.ref_config))
     else:
         ref_config = None
 
-    for i, agent in enumerate(env.agents):
-        conn1, conn2 = mp.Pipe()
-        main_agent_conns.append(conn1)
-        obs_space = env.observation_spaces[agent]
-        act_space = env.action_spaces[agent]
+    ref_agents = []
+    num_refs_all = []
+    if args.use_reference:
+        for i, agent in enumerate(env.agents):
+            obs_space = env.observation_spaces[agent]
+            act_space = env.action_spaces[agent]
 
-        ref_agents = None
-        if args.use_reference:
             if ref_config is not None:
                 ref_load_dirs = []
                 ref_load_steps = []
@@ -122,17 +78,107 @@ def _run(args, logger):
                 if type(ref_num_refs) != list:
                     ref_num_refs = [ref_num_refs] * len(ref_load_dirs)
                 ref_load_agents = [env.agents[i]] * len(ref_load_dirs)
-            ref_agents = []
+            ref_agents_i = []
             # print(ref_load_steps, args.ref_use_ref)
             for ld, ls, nr, la in zip(ref_load_dirs, ref_load_steps, ref_num_refs, ref_load_agents):
-                ref_agent, _ = get_agent(la, args, obs_space, input_structures[agent], act_space, None, n_ref=nr, is_ref=True)
+                ref_agent, _ = get_agent(la, args, obs_space, input_structures[agent], act_space, None, n_ref=nr,
+                                         is_ref=True)
                 load_actor_critic(ref_agent, ld, la if type(la) == str else env.agents[la], ls)
-                ref_agents.append(ref_agent)
+                ref_agents_i.append(ref_agent)
+            ref_agents.append(ref_agents_i)
+            num_refs_all.append(len(ref_agents_i))
+            # print(num_refs)
 
-                # while True:
-                #     obs = list(map(float, input().split()))
-                #     obs = torch.tensor(obs, dtype=torch.float)
-                #     print(ref_agent.get_strategy(obs, None, None))
+    save_dir = mkdir2(args.save_dir, get_timestamp())
+    json.dump(vars(args), open(os.path.join(save_dir, "config.json"), "w"), indent=2)
+
+    obs_locks = []
+    act_locks = []
+    ref_locks = []
+
+    for i in range(num_envs):
+        _obs_locks = []
+        _act_locks = []
+        for j in range(num_agents):
+            # __obs_locks = []
+            # __act_locks = []
+            # for k in range(1 + num_refs_all[j]):
+            #     __obs_locks.append(mp.Event())
+            #     # _obs_locks[-1].set()
+            #     __act_locks.append(mp.Event())
+            # # _act_locks[-1].set()
+            # _obs_locks.append(__obs_locks)
+            # _act_locks.append(__act_locks)
+            _obs_locks.append(mp.Event())
+            _act_locks.append(mp.Event())
+        obs_locks.append(_obs_locks)
+        act_locks.append(_act_locks)
+
+    # for i in range(num_agents):
+    #     _ref_locks = []
+    #     for k in range(num_refs_all[i]):
+    #         _ref_locks.append(mp.Event())
+    #     ref_locks.append(_ref_locks)
+
+    assert num_agents == len(env.agents)
+    obs_buffer_size = 0
+    item_size = np.zeros(1, dtype=np.float32).nbytes
+    # print(item_size)
+    obs_indices = []
+
+    for i, agent in enumerate(env.agents):
+        # print(env.observation_spaces[agent].shape)
+        next_obs_buffer_size = obs_buffer_size + item_size * num_envs * (env.observation_spaces[agent].shape[0] + 2)
+        # print(next_obs_buffer_size - obs_buffer_size)
+        obs_indices.append((obs_buffer_size, next_obs_buffer_size))
+        obs_buffer_size = next_obs_buffer_size
+
+    obs_shm = shared_memory.SharedMemory(create=True, size=obs_buffer_size)
+    act_shm = shared_memory.SharedMemory(create=True, size=num_envs * num_agents)
+    ref_shms = []
+
+    # print("input_structures:", input_structures)
+
+    # print(len(env.agents))
+    # print(env.agents)
+
+    train_fn = no_train
+    if args.train:
+        if args.train_in_turn:
+            train_fn = train_in_turn
+        else:
+            train_fn = train_simultaneously
+
+    for i, agent in enumerate(env.agents):
+        conn1, conn2 = mp.Pipe()
+        main_agent_conns.append(conn1)
+
+        obs_space = env.observation_spaces[agent]
+        act_space = env.action_spaces[agent]
+
+        ref_shm = None
+
+        if args.use_reference:
+            num_actions = act_space.n
+
+            # print(num_refs_all[i], args.num_processes, num_actions, item_size)
+            # ref_shm = shared_memory.SharedMemory(create=True, size=num_refs_all[i] * args.num_processes * num_actions * item_size)
+            # ref_processes_i = []
+            # for j, ref_agent in enumerate(ref_agents[i]):
+            #     ref_process = RefAgent(agent=ref_agent, agent_id=i, ref_id=j, num_refs=num_refs_all[i],
+            #                            num_actions=num_actions, args=args, obs_shm=obs_shm,
+            #                            buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
+            #                            ref_shm=ref_shm, obs_locks=[locks[i][1 + j] for locks in obs_locks],
+            #                            act_locks=[locks[i][1 + j] for locks in act_locks],
+            #                            ref_locks=[locks[j] for locks in ref_locks])
+            #     ref_processes_i.append(ref_process)
+            #     # ref_process.start()
+            #
+            #     # while True:
+            #     #     obs = list(map(float, input().split()))
+            #     #     obs = torch.tensor(obs, dtype=torch.float)
+            #     #     print(ref_agent.get_strategy(obs, None, None))
+            # ref_shms.append(ref_shm)
 
         # print("123123132")
         num_refs = None if args.num_refs is None else args.num_refs[i]
@@ -143,12 +189,13 @@ def _run(args, logger):
                    input_structure=input_structures[agent],
                    act_space=act_space, main_conn=conn2,
                    obs_shm=obs_shm, buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
-                   obs_locks=[locks[i] for locks in obs_locks], act_shm=act_shm,
-                   act_locks=[locks[i] for locks in act_locks], use_attention=args.use_attention,
+                   obs_locks=[locks[i] for locks in obs_locks], act_shm=act_shm, ref_shm=None,
+                   act_locks=[locks[i] for locks in act_locks], ref_locks=None,
+                   use_attention=args.use_attention,
                    save_dir=save_dir,
                    train=partial(train_fn, args.num_agents, i),
                    num_refs=num_refs,
-                   reference_agent=ref_agents)
+                   reference_agent=ref_agents[i])
         # print("123123123", i)
         agents.append(ap)
         ap.start()
@@ -157,7 +204,10 @@ def _run(args, logger):
         conn1, conn2 = mp.Pipe()
         main_env_conns.append(conn1)
         ev = Environment(i, logger.info, args, env=_make_env(), agents=env.agents, main_conn=conn2,
-                         obs_shm=obs_shm, obs_locks=obs_locks[i], act_shm=act_shm, act_locks=act_locks[i])
+                         obs_shm=obs_shm,
+                         obs_locks=obs_locks[i],
+                         act_shm=act_shm,
+                         act_locks=act_locks[i])
         envs.append(ev)
         ev.start()
 
@@ -168,21 +218,23 @@ def _run(args, logger):
         conn.send(None)
 
     num_updates = args.num_env_steps // args.num_steps // args.num_processes
-    for i in range(num_updates):
-        while True:
-            # This happens every batch (times num_envs)
-            finish = True
-            for j in range(num_agents):
-                cf = main_agent_conns[j].recv()
-                # print(j, cf)
-                finish = finish and cf
-                # print(j, finish)
-            for j in range(num_agents):
-                main_agent_conns[j].send(finish)
-            for j in range(num_envs):
-                main_env_conns[j].send(finish and i == num_updates - 1)
-            if finish:
-                break
+
+    if args.reject_sampling:
+        for i in range(num_updates):
+            while True:
+                # This happens every batch (times num_envs)
+                finish = True
+                for j in range(num_agents):
+                    cf = main_agent_conns[j].recv()
+                    # print(j, cf)
+                    finish = finish and cf
+                    # print(j, finish)
+                for j in range(num_agents):
+                    main_agent_conns[j].send(finish)
+                for j in range(num_envs):
+                    main_env_conns[j].send(finish and i == num_updates - 1)
+                if finish:
+                    break
 
     for ev in envs:
         ev.join()

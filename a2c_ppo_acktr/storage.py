@@ -105,6 +105,8 @@ class RolloutStorage(object):
                 gae = 0
                 num_value_refs = self.num_value_refs
                 assert num_refs == num_value_refs
+                # print(self.value_preds)
+                # print(self.rewards.size(0))
                 for step in reversed(range(self.rewards.size(0))):
                     delta = self.rewards[step, :, :1 + num_refs] + \
                             gamma * self.value_preds[step + 1, :, :1 + num_refs] * self.masks[step + 1] - \

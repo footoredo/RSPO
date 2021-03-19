@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
+import time
 from a2c_ppo_acktr.multi_agent.utils import flat_view, net_add, ggrad, tsne, cluster, barred_argmax, \
     extract_trajectory, displot, jointplot, mkdir2
 
@@ -70,6 +71,7 @@ class PPO():
         #     print("PPO")
 
     def update(self, rollouts):
+        # st = time.time()
         self.cnt += 1
         # advantages = rollouts.returns[:-1]
         num_refs = rollouts.num_refs
@@ -388,8 +390,9 @@ class PPO():
                     si = list(filter(lambda x: return_batch[x, 0] > 0., range(batch_size)))
                     # si = list(range(batch_size))
                     cn = criterion.numpy()
-                    plot = True
+                    plot = self.args.plot_joint_plot
                     if e == 0 and mini_batch_cnt == 0 and plot:
+                        print("plot")
                         # si = list(range(batch_size))
                         # displot([cn[i] for i in filter(lambda x: return_batch[x, 0] > 0., range(batch_size))])
                         # displot(return_batch[:, 0])
@@ -404,6 +407,8 @@ class PPO():
                             #           save_path=save_path, title="agent-{} ref-{}".format(self.agent_name, cni))
                             jointplot(cn[si][:, cni], return_batch[:, 0].numpy()[si],
                                       save_path=save_path, title="agent-{} ref-{}".format(self.agent_name, cni))
+                    # else:
+                    #     print("yes")
                     pool = cn[si]
                     # from sklearn.mixture import GaussianMixture
                     # mixture = GaussianMixture(n_components=2).fit(pool.reshape(-1, 1))
@@ -437,6 +442,7 @@ class PPO():
                     # print(advantages.size())
                     # print(1)
                     if self.args.interpolate_rewards:
+                        # st = time.time()
                         indices = list(range(batch_size))
                         interpolate_mask = []
                         for i in range(batch_size):
@@ -445,6 +451,7 @@ class PPO():
                             else:
                                 interpolate_mask.append([0.] + (cn[i] <= lim).astype(np.float).tolist())
                         interpolate_mask = torch.Tensor(interpolate_mask)
+                        # print(time.time() - st)
                     elif not self.args.use_likelihood_reward_cap:
                         indices = list(filter(lambda x: all(cn[x] > lim), range(batch_size)))
                         # print(len(indices), batch_size)
@@ -730,5 +737,7 @@ class PPO():
 
         # print(self.actor_critic.dist.linear.weight, self.actor_critic.dist.linear.bias)
         # print(self.actor_critic.dist.linear.weight)
+
+        # print(time.time() - st)
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch

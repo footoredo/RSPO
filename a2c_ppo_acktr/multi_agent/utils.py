@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import os
 import pathlib
+import json
 
 from a2c_ppo_acktr.storage import RolloutStorage
 
@@ -10,6 +11,31 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans, SpectralClustering
+
+
+CONFIDENTIAL = json.load(open("./confidential.json"))
+
+
+def get_remote(filename):
+    from paramiko import SSHClient
+    from scp import SCPClient
+
+    ssh_config = CONFIDENTIAL["ssh"]
+    home_dir = ssh_config["remote_home_dir"]
+    tmp_dir = "/tmp/get_remote"
+
+    ssh = SSHClient()
+    ssh.load_system_host_keys()
+    ssh.connect(ssh_config["hostname"], username=ssh_config["username"],
+                key_filename=ssh_config["key_filename"])
+
+    local_path = os.path.join(tmp_dir, get_timestamp())
+    mkdir(tmp_dir)
+
+    with SCPClient(ssh.get_transport()) as scp:
+        scp.get(os.path.join(home_dir, filename), local_path)
+
+    return local_path
 
 
 def get_timestamp():

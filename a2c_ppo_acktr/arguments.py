@@ -256,6 +256,10 @@ def get_args(add_extra_args_fn=None):
         action="store_true",
         default=False)
     parser.add_argument(
+        '--plot-joint-plot',
+        action="store_true",
+        default=False)
+    parser.add_argument(
         '--likelihood-gamma',
         type=float,
         default=0.995)

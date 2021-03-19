@@ -53,11 +53,11 @@ class Environment(mp.Process):
 
     def write(self, place, obs, reward, done):
         obs = np.array(obs, dtype=self.dtype)
-        # self.log(obs.shape[0])
+        # self.log("obs len {}".format(obs.shape[0]))
         # print(obs.shape[0], len(place))
         np.copyto(place[:obs.shape[0]], obs)
-        place[obs.shape[0]] = reward
-        place[obs.shape[0] + 1] = done
+        place[obs.shape[0]] = float(reward)
+        place[obs.shape[0] + 1] = float(done)
 
     def run(self):
         if self.num_env_steps == 0:
@@ -93,6 +93,8 @@ class Environment(mp.Process):
         item_size = np.zeros(1, dtype=self.dtype).nbytes
         actions = dict()
 
+        num_episodes = self.num_env_steps // args.episode_steps
+
         for agent in self.agents:
             actions[agent] = 0
 
@@ -115,7 +117,9 @@ class Environment(mp.Process):
         self.main_conn.recv()
         done = False
         step = 0
+        finished_episodes = 0
         while True:
+            # self.log(step)
             self.np_random.tomaxint()  # flush state for 1 step
             release_all_locks(self.obs_locks)
 
@@ -123,15 +127,24 @@ class Environment(mp.Process):
                 self.reseed(step + 1, self.reseed_z)
 
             if done:
+                # self.log("done")
                 # acquire_all_locks(self.act_locks)
-                if self.main_conn.recv():
-                    break
+                if args.reject_sampling:
+                    if self.main_conn.recv():
+                        break
+                else:
+                    acquire_all_locks(self.act_locks)
+                    finished_episodes += 1
+                    # self.log(finished_episodes)
+                    if finished_episodes >= num_episodes:
+                        break
                 obs = env.reset()
                 for agent in self.agents:
                     reward_filters[agent].reset()
                 rewards = {agent: 0. for agent in self.agents}
                 dones = {agent: False for agent in self.agents}
             else:
+                # self.log(len(self.act_locks))
                 acquire_all_locks(self.act_locks)
                 for i, agent in enumerate(self.agents):
                     actions[agent] = self.act_shm.buf[self.env_id * self.num_agents + i]
@@ -149,14 +162,18 @@ class Environment(mp.Process):
             #     else:
             #         self.env.seed(last_seed)
 
+            # self.log("to write")
             not_done = False
+            # self.log("step {}, done {}".format(step, dones))
             for i, agent in enumerate(self.agents):
+                # self.log("{}, {}".format(i, agent))
                 # self.log("step {} - obs for {}: {}, {}, {}".format(i + 1, agent, obs[agent], rewards[agent], dones[agent]))
                 self.write(obs_places[i], obs[agent], reward_filters[agent](rewards[agent]), dones[agent])
                 not_done = not_done or not dones[agent]
             done = not not_done
 
-            # self.log("step: {}, done: {}".format(step, done))
+            # if self.env_id == 0:
+            #     self.log("step: {}, done: {}".format(step, done))
 
             step += 1
 
