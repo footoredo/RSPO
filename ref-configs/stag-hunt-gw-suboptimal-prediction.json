@@ -1,0 +1,54 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-prediction/2021-04-22T12:37:54.341640#31ec",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-prediction/2021-04-22T12:37:54.341640#31ec",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit-prediction-long/2021-04-23T13:23:38.297227#8b59",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit-prediction-long/2021-04-23T13:23:38.297227#8b59",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-prediction/2021-04-22T12:37:54.341640#31ec",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-prediction/2021-04-22T12:37:54.341640#31ec",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit-prediction-long/2021-04-23T13:23:38.297227#8b59",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/no-fruit-prediction-long/2021-04-23T13:23:38.297227#8b59",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "1"
+        }
+    ]
+}

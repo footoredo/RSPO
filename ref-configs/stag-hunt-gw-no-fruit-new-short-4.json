@@ -1,0 +1,102 @@
+{
+  "0": [
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new/2021-03-24T11:39:14.422563#fd40",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new/2021-03-24T11:39:14.422563#fd40",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T14:59:27.083233#b3ba",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T14:59:27.083233#b3ba",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:18:53.890940#22dc",
+      "load_step": null,
+      "num_refs": 4,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:18:53.890940#22dc",
+      "load_step": null,
+      "num_refs": 4,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:30:09.282095#1889",
+      "load_step": null,
+      "num_refs": 6,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:30:09.282095#1889",
+      "load_step": null,
+      "num_refs": 6,
+      "load_agent": 1
+    }
+  ],
+  "1": [
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new/2021-03-24T11:39:14.422563#fd40",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new/2021-03-24T11:39:14.422563#fd40",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T14:59:27.083233#b3ba",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T14:59:27.083233#b3ba",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:18:53.890940#22dc",
+      "load_step": null,
+      "num_refs": 4,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:18:53.890940#22dc",
+      "load_step": null,
+      "num_refs": 4,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:30:09.282095#1889",
+      "load_step": null,
+      "num_refs": 6,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/no-fruit-new-3/2021-03-24T15:30:09.282095#1889",
+      "load_step": null,
+      "num_refs": 6,
+      "load_agent": 1
+    }
+  ]
+}

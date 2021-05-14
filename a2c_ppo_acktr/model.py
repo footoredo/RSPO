@@ -3,8 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian
+from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian, FixedNormal
 from a2c_ppo_acktr.utils import init
+from copy import deepcopy
+import math
 
 
 class Flatten(nn.Module):
@@ -27,19 +29,51 @@ class Policy(nn.Module):
 
         # print("21312312")
 
-        self.base = base(obs_shape[0], **base_kwargs)
-
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
-            self.dist = Categorical(self.base.output_size, num_outputs, is_ref=base_kwargs["is_ref"])
+
+            def action_embedding(actions):
+                return torch.nn.functional.one_hot(actions, num_classes=num_outputs).squeeze(-2)
         elif action_space.__class__.__name__ == "Box":
             num_outputs = action_space.shape[0]
-            self.dist = DiagGaussian(self.base.output_size, num_outputs)
+
+            def action_embedding(actions):
+                return actions
         elif action_space.__class__.__name__ == "MultiBinary":
             num_outputs = action_space.shape[0]
-            self.dist = Bernoulli(self.base.output_size, num_outputs)
+
+            raise NotImplementedError
         else:
             raise NotImplementedError
+
+        base_kwargs["num_actions"] = num_outputs
+        base_kwargs["action_embedding"] = action_embedding
+
+        # print("start")
+        self.base = base(obs_shape[0], **base_kwargs)
+        # print('finish')
+
+        if action_space.__class__.__name__ == "Discrete":
+            self.dist = Categorical(self.base.output_size, num_outputs, is_ref=base_kwargs["is_ref"])
+        elif action_space.__class__.__name__ == "Box":
+            self.dist = DiagGaussian(self.base.output_size, num_outputs)
+        elif action_space.__class__.__name__ == "MultiBinary":
+            self.dist = Bernoulli(self.base.output_size, num_outputs)
+
+        self.obs_rms = None
+
+    def normalize_obs(self, obs):
+        obs_rms = self.obs_rms
+        if obs_rms is not None:
+            if obs_rms.mean.dtype == np.float64:
+                obs_rms.mean = obs_rms.mean.astype(np.float32)
+                obs_rms.var = obs_rms.var.astype(np.float32)
+            epsilon = 1e-8
+            clip_obs = 10.
+            obs = torch.clamp((obs - obs_rms.mean) / np.sqrt(obs_rms.var + epsilon), -clip_obs, clip_obs)
+            return obs
+        else:
+            return obs
 
     @property
     def is_recurrent(self):
@@ -53,8 +87,12 @@ class Policy(nn.Module):
     def forward(self, inputs, rnn_hxs, masks):
         raise NotImplementedError
 
+    def process_base(self, inputs, *args, **kwargs):
+        inputs = self.normalize_obs(inputs)
+        return self.base(inputs, *args, **kwargs)
+
     def act(self, inputs, rnn_hxs, masks, deterministic=False):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        value, actor_features, _, rnn_hxs = self.process_base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
         # torch.set_printoptions(precision=3, sci_mode=False)
         # print(dist.probs.detach())
@@ -70,34 +108,53 @@ class Policy(nn.Module):
         return value, action, action_log_probs, rnn_hxs
 
     def get_value(self, inputs, rnn_hxs, masks):
-        value, _, _ = self.base(inputs, rnn_hxs, masks)
+        value, _, _, _ = self.process_base(inputs, rnn_hxs, masks)
         return value
 
     def get_strategy(self, inputs, rnn_hxs, masks):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        value, actor_features, _, rnn_hxs = self.process_base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
-        return dist.probs
+        return dist
+        # if isinstance(dist, FixedNormal):
+        #     return dist.mean, dist.stddev
+        # else:
+        #     return dist.probs
 
     def get_probs(self, inputs, rnn_hxs, masks, action):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        value, actor_features, _, rnn_hxs = self.process_base(inputs, rnn_hxs, masks)
         # print(actor_features)
         dist = self.dist(actor_features)
         # print(dist)
 
         action_log_probs = dist.log_probs(action)
+        # print(f"      {action_log_probs + torch.log(dist.scale).sum() + math.log(math.sqrt(2. * math.pi)) * dist.scale.size()[-1]}")
+        # print(f"      {torch.log(dist.scale).sum()}")
 
         # print(action_log_probs)
 
         return torch.exp(action_log_probs)
 
+    def get_likelihoods(self, inputs, rnn_hxs, masks, action):
+        value, actor_features, _, rnn_hxs = self.process_base(inputs, rnn_hxs, masks)
+        dist = self.dist(actor_features)
+
+        action_likelihoods = dist.likelihoods(action)
+
+        return action_likelihoods
+
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        value, actor_features, _, rnn_hxs = self.process_base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
 
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy()
 
         return value, action_log_probs, dist_entropy, rnn_hxs, dist
+
+    def get_reward_prediction(self, inputs, rnn_hxs, masks, action):
+        _, _, prediction, _ = self.process_base(inputs, rnn_hxs, masks, action)
+
+        return prediction
 
 
 class NNBase(nn.Module):
@@ -370,8 +427,11 @@ class LinearBase(NNBase):
 
 
 class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh", critic_dim=1, is_ref=False):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh", critic_dim=1, is_ref=False,
+                 predict_reward=False, num_actions=1, action_embedding=None):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
+
+        # print("start")
 
         if recurrent:
             num_inputs = hidden_size
@@ -395,6 +455,7 @@ class MLPBase(NNBase):
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_size)), activation_fn(),
             init_(nn.Linear(hidden_size, hidden_size)), activation_fn())
+        # print("finish", num_inputs, hidden_size)
         # if not is_ref:
         #     print("C", critic_dim, num_inputs, hidden_size)
 
@@ -407,22 +468,55 @@ class MLPBase(NNBase):
         self.critic_linear = init_(nn.Linear(hidden_size, critic_dim))
         self.critic_dim = critic_dim
 
+        self.predict_reward = predict_reward
+        if predict_reward:
+            self.num_actions = num_actions
+            self.action_embedding = action_embedding
+            self.predictor = nn.Sequential(
+                nn.Linear(num_inputs + num_actions, hidden_size), activation_fn(),
+                nn.Linear(hidden_size, 1)
+            )
+            # self.random_net = nn.Sequential(
+            #     nn.Linear(num_inputs + num_actions, hidden_size), activation_fn(),
+            #     nn.Linear(hidden_size, 1)
+            # )
+            # self.random_net_predictor = nn.Sequential(
+            #     nn.Linear(num_inputs + num_actions, hidden_size), activation_fn(),
+            #     nn.Linear(hidden_size, 1)
+            # )
+
         self.train()
 
     # @property
     # def output_size(self):
     #     return self.num_inputs
 
-    def forward(self, inputs, rnn_hxs, masks):
+    def forward(self, inputs, rnn_hxs, masks, actions=None):
         x = inputs
 
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
 
-        hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x)
+        action_input_mask = torch.ones(inputs.size()[-1])
+        action_input_mask[0] = 0.
 
-        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs
+        hidden_critic = self.critic(x)
+        hidden_actor = self.actor(x * action_input_mask)
+
+        if self.predict_reward and actions is not None:
+            # print(inputs.size(), actions.size())
+            # print(actions.dtype)
+            actions = self.action_embedding(actions)
+            _inputs = torch.cat((inputs, actions), dim=-1)
+            reward_prediction = self.predictor(_inputs)
+            # random_net_value = self.random_net(_inputs).detach()
+            # random_net_prediction = self.random_net_predictor(_inputs)
+            # prediction = (reward_prediction, random_net_value, random_net_prediction)
+            prediction = (reward_prediction, None, None)
+        else:
+            prediction = None
+
+        return self.critic_linear(hidden_critic), hidden_actor, prediction, rnn_hxs
 
 
 if __name__ == "__main__":

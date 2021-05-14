@@ -46,6 +46,8 @@ class PPO():
 
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
+        self.reward_prediction_loss_coef = args.reward_prediction_loss_coef
+        # print(self.reward_prediction_loss_coef)
 
         self.max_grad_norm = max_grad_norm
         self.clip_grad_norm = clip_grad_norm
@@ -59,8 +61,9 @@ class PPO():
         if is_ref:
             self.optimizer = None
         else:
-            # self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, betas=(0., 0.999))
+            # self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, betas=(0.5, 0.999))
             self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
+            self.reward_optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
         self.cnt = 0
         self.args = args
@@ -75,14 +78,19 @@ class PPO():
         self.cnt += 1
         # advantages = rollouts.returns[:-1]
         num_refs = rollouts.num_refs
-        if rollouts.num_refs == rollouts.num_value_refs:
-            advantages = rollouts.returns[:-1, :, :1 + num_refs] - rollouts.value_preds[:-1]
+        num_value_refs = rollouts.num_value_refs
+        if num_refs == num_value_refs:
+            advantages = rollouts.returns[:-1, :, :1 + num_refs * 2] - rollouts.value_preds[:-1]
         else:
             advantages = rollouts.returns[:-1, :, 0] - rollouts.value_preds[:-1, :, 0]
         # print(advantages.size())
         # print(advantages.mean(dim=[0, 1], keepdims=True).size())
         advantages = (advantages - advantages.mean(dim=[0, 1], keepdims=True)) / (
             advantages.std(dim=[0, 1], keepdims=True) + 1e-5)  # [batch, step, n]
+        # advantages[:, :, 0] = (advantages[:, :, 0] - advantages[:, :, 0].mean(dim=[0, 1], keepdims=True)) / (
+        #     advantages[:, :, 0].std(dim=[0, 1], keepdims=True) + 1e-5)  # [batch, step, n]
+        # advantages[:, :, 1:] = (advantages[:, :, 1:] - advantages[:, :, 0].mean(dim=[0, 1], keepdims=True)) / (
+        #     advantages[:, :, 1:].std(dim=[0, 1], keepdims=True) + 1e-5)  # [batch, step, n]
 
         # def down_sample(_o, _a):
         #     # b = int(1e9 + 7)
@@ -155,6 +163,7 @@ class PPO():
         action_loss_epoch = 0
         dist_entropy_epoch = 0
         grad_norm_epoch = 0
+        reward_prediction_loss_epoch = 0
 
         cnt = [0, 0]
 
@@ -207,6 +216,8 @@ class PPO():
         #     num_mini_batch_needed = 1
         #     print(11)
 
+        interpolate_time = 0.
+
         for e in range(ppo_epoch):
             if self.actor_critic.is_recurrent:
                 data_generator = rollouts.recurrent_generator(
@@ -221,7 +232,7 @@ class PPO():
 
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
-                        adv_targ = sample
+                        adv_targ, interpolate_masks_batch, rewards_batch = sample
 
                 batch_size = masks_batch.view(-1).size()[0]
                 half_batch_size = batch_size // 2
@@ -248,7 +259,9 @@ class PPO():
                 return_batch = return_batch.view(batch_size, -1)
                 masks_batch = masks_batch.view(batch_size, -1)
                 old_action_log_probs_batch = old_action_log_probs_batch.view(batch_size, -1)
-                adv_targ = adv_targ.view(batch_size, -1)[:, :1 + num_refs]
+                interpolate_masks_batch = interpolate_masks_batch.view(batch_size, -1)
+                rewards_batch = rewards_batch.view(batch_size, -1)
+                adv_targ = adv_targ.view(batch_size, -1)[:, :1 + num_refs * 2]
                 # print(adv_targ)
 
                 # print(return_batch.size(), value_preds_batch.size(), adv_targ.size())
@@ -257,6 +270,13 @@ class PPO():
                 values, action_log_probs, dist_entropy_all, _, dists = self.actor_critic.evaluate_actions(
                     obs_batch, recurrent_hidden_states_batch, masks_batch,
                     actions_batch)
+
+                # probs = self.actor_critic.get_strategy(obs_batch, recurrent_hidden_states_batch, masks_batch)
+                #
+                # if num_refs > 0:
+                #     cross_entropy_all = -(torch.exp(action_log_probs) * ref_rewards).sum()
+                # else:
+                #     cross_entropy_all =
 
                 # test_obs = torch.tensor(obss, requires_grad=True, dtype=torch.float)
                 # test_obs = torch.tensor([[0., 0., 0., 0., 0., 0., 0.]], requires_grad=True, dtype=torch.float)
@@ -387,18 +407,18 @@ class PPO():
                 if self.args.use_reference:
                     choose_size = int(batch_size * 0.5)
                     criterion = return_batch[:, 1 + num_refs:]
-                    si = list(filter(lambda x: return_batch[x, 0] > 0., range(batch_size)))
-                    # si = list(range(batch_size))
+                    # si = list(filter(lambda x: return_batch[x, 0] > 0., range(batch_size)))
+                    si = list(range(batch_size))
                     cn = criterion.numpy()
-                    plot = self.args.plot_joint_plot
+                    # plot = self.args.plot_joint_plot
+                    plot = False
                     if e == 0 and mini_batch_cnt == 0 and plot:
-                        print("plot")
                         # si = list(range(batch_size))
                         # displot([cn[i] for i in filter(lambda x: return_batch[x, 0] > 0., range(batch_size))])
                         # displot(return_batch[:, 0])
                         # print(cn.shape[1])
                         for cni in range(num_refs):
-                            if cni < 18:
+                            if cni < 16:
                                 continue
                             save_dir = mkdir2(self.save_dir, "ref-{}".format(cni))
                             save_path = os.path.join(save_dir, "{}.png".format(self.cnt))
@@ -442,15 +462,17 @@ class PPO():
                     # print(advantages.size())
                     # print(1)
                     if self.args.interpolate_rewards:
-                        # st = time.time()
                         indices = list(range(batch_size))
-                        interpolate_mask = []
-                        for i in range(batch_size):
-                            if all(cn[i] > lim):
-                                interpolate_mask.append([1.] + [0.] * num_refs)
-                            else:
-                                interpolate_mask.append([0.] + (cn[i] <= lim).astype(np.float).tolist())
-                        interpolate_mask = torch.Tensor(interpolate_mask)
+                        interpolate_mask = interpolate_masks_batch
+                        # st = time.time()
+                        # interpolate_mask = []
+                        # for i in range(batch_size):
+                        #     if all(cn[i] > lim):
+                        #         interpolate_mask.append([1.] + [0.] * num_refs)
+                        #     else:
+                        #         interpolate_mask.append([0.] + (cn[i] <= lim).astype(np.float).tolist())
+                        # interpolate_mask = torch.Tensor(interpolate_mask)
+                        # interpolate_time += time.time() - st
                         # print(time.time() - st)
                     elif not self.args.use_likelihood_reward_cap:
                         indices = list(filter(lambda x: all(cn[x] > lim), range(batch_size)))
@@ -480,20 +502,34 @@ class PPO():
                 #     continue
                     # print(1, obs_batch[0], D_MAP[actions_batch.item()], adv_targ.item())
 
+                tmp_num_refs = num_refs * 2 if num_refs == num_value_refs else 0
                 if self.use_clipped_value_loss:
+                    # print("CLIP")
                     # value_preds_batch = value_preds_batch[:, :1]
                     # values = values[:, :1]
                     # return_batch = return_batch[:, :1]
                     value_pred_clipped = value_preds_batch + \
                         (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
                     # print(value_pred_clipped.size())
-                    value_losses = (values - return_batch[:, :1 + num_refs]).pow(2)
+                    value_losses = (values - return_batch[:, :1 + tmp_num_refs]).pow(2)
                     value_losses_clipped = (
-                        value_pred_clipped - return_batch[:, :1 + num_refs]).pow(2)
+                        value_pred_clipped - return_batch[:, :1 + tmp_num_refs]).pow(2)
                     value_loss_all = 0.5 * torch.max(value_losses, value_losses_clipped)
                 else:
                     # print(1)
-                    value_loss_all = 0.5 * (return_batch[:, :1 + num_refs] - values).pow(2)
+                    value_loss_all = 0.5 * (return_batch[:, :1 + tmp_num_refs] - values).pow(2)
+
+                if self.args.use_reward_predictor:
+                    # num_actions = self.actor_critic.base.num_actions
+                    # one_hot_actions_batch = torch.nn.functional.one_hot(actions_batch, num_classes=num_actions).squeeze(1)
+                    prediction = self.actor_critic.get_reward_prediction(obs_batch, recurrent_hidden_states_batch,
+                                                                         masks_batch, actions_batch)
+                    reward_prediction, random_net_value, random_net_prediction = prediction
+                    reward_prediction_loss_all = 0.5 * (rewards_batch * self.args.reward_prediction_multiplier - reward_prediction).pow(2)
+                    # reward_prediction_loss_all = 0.5 * (return_batch[:, 0] * 5. - reward_prediction).pow(2)
+                    # reward_prediction_loss_all += 0.5 * (random_net_prediction - random_net_value).pow(2)
+                else:
+                    reward_prediction_loss_all = None
 
                 if not self.args.interpolate_rewards:
                     value_loss_all = value_loss_all[:, :1]
@@ -514,13 +550,26 @@ class PPO():
                     #     action_loss_all[i] = -0.1 * action_loss_all[i]
                     dist_entropy_all = dist_entropy_all[selected_indices]
 
+                    if self.args.use_reward_predictor:
+                        reward_prediction_loss_all = reward_prediction_loss_all[selected_indices]
+
                 # print(action_loss_all.size(), interpolate_mask.size())
-                action_loss_all = torch.mul(action_loss_all, interpolate_mask).sum(dim=-1)
+                if self.args.interpolate_rewards:
+                    _action_loss_all = torch.mul(action_loss_all, interpolate_mask).sum(dim=-1)
+                    # print(interpolate_mask[0])
+                    # print(interpolate_mask[:, 0].sum())
+                    # print((action_loss_all[:, 0].detach() - _action_loss_all.detach()).square().sum())
+                    action_loss_all = _action_loss_all
+
+                reward_prediction_loss = torch.tensor(0.)
 
                 if not self.ref:
                     value_loss = value_loss_all.mean()
                     action_loss = action_loss_all.mean()
                     dist_entropy = dist_entropy_all.mean()
+
+                    if self.args.use_reward_predictor:
+                        reward_prediction_loss = reward_prediction_loss_all.mean()
                 else:
                     ref_probs = self.ref_agent.get_probs(obs_batch, recurrent_hidden_states_batch, masks_batch, actions_batch).detach()
                     # n_slices = 4
@@ -559,11 +608,16 @@ class PPO():
                     action_loss_mask = 1.
 
                     self.optimizer.zero_grad()
+                    self.reward_optimizer.zero_grad()
+                    # self.value_loss_coef = 0.
                     (value_loss * self.value_loss_coef + rollouts.action_loss_coef * action_loss_mask * action_loss -
                      dist_entropy * self.entropy_coef).backward()
+                    (reward_prediction_loss * self.reward_prediction_loss_coef).backward()
 
                     total_norm = 0.
-                    for p in self.actor_critic.parameters():
+                    for name, p in self.actor_critic.named_parameters():
+                        if name.startswith("base.predictor") or name.startswith("base.random_net") or name.startswith("base.random_net_predictor"):
+                            continue
                         param_norm = p.grad.data.norm(2)
                         total_norm += param_norm.item() ** 2
                     total_norm = total_norm ** (1. / 2)
@@ -573,6 +627,8 @@ class PPO():
                         nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                                  self.max_grad_norm)
                     self.optimizer.step()
+
+                    self.reward_optimizer.step()
                 elif self.task[:4] == "grad":
                     if return_batch[0].item() > 0.5:
                         g = flat_view(ggrad(self.actor_critic, action_loss)).detach()
@@ -590,6 +646,7 @@ class PPO():
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
+                reward_prediction_loss_epoch += reward_prediction_loss.item()
 
                 # strategy = self.actor_critic.get_strategy(the_obs, None, None).detach()
                 # fg = []
@@ -625,6 +682,7 @@ class PPO():
         # for i, g in enumerate(grads):
         #     if nears[i] != 0:
         #         print(g.norm(2), g @ mean_g / g.norm(2) / mean_g.norm(2), nears[i])
+        # print("interpolate_time:", interpolate_time)
 
         if type(self.task) == str:
             if self.task[:3] == "cnt":
@@ -732,6 +790,7 @@ class PPO():
         action_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
         grad_norm_epoch /= num_updates
+        reward_prediction_loss_epoch /= num_updates
 
         # print(fgs[-1])
 
@@ -740,4 +799,4 @@ class PPO():
 
         # print(time.time() - st)
 
-        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch
+        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch, reward_prediction_loss_epoch

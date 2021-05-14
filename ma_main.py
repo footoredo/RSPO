@@ -1,6 +1,10 @@
 import time
 import json
 
+import pandas as pd
+
+import wandb
+
 from a2c_ppo_acktr.arguments import get_args
 from multiprocessing import shared_memory
 
@@ -13,6 +17,10 @@ from a2c_ppo_acktr.multi_agent.utils import *
 
 import logging
 import multiprocessing as mp
+
+from copy import deepcopy
+
+import math
 
 
 def train_in_turn(n_agents, i, n_iter):
@@ -28,6 +36,19 @@ def no_train(n_agents, i, n_iter):
 
 
 def _run(args, logger):
+    run_name = get_timestamp()
+
+    if args.use_wandb:
+        wandb_config = {
+            "project": args.wandb_project,
+            "entity": CONFIDENTIAL["wandb"]["username"],
+            "group": args.wandb_group,
+            "name": run_name,
+            "config": args
+        }
+
+        wandb.init(**wandb_config)
+
     result = dict()
 
     num_agents = args.num_agents
@@ -41,7 +62,7 @@ def _run(args, logger):
     envs = []
     main_env_conns = []
 
-    _make_env = partial(make_env, args.env_name, args.episode_steps)
+    _make_env = partial(make_env, args.env_name, args.episode_steps, args.env_config)
     env = _make_env()
 
     input_structures = env.input_structures
@@ -81,15 +102,20 @@ def _run(args, logger):
             ref_agents_i = []
             # print(ref_load_steps, args.ref_use_ref)
             for ld, ls, nr, la in zip(ref_load_dirs, ref_load_steps, ref_num_refs, ref_load_agents):
-                ref_agent, _ = get_agent(la, args, obs_space, input_structures[agent], act_space, None, n_ref=nr,
+                if not args.no_load_refs:
+                    ref_agent, _ = get_agent(la, args, obs_space, input_structures[agent], act_space, None, n_ref=nr,
                                          is_ref=True)
-                load_actor_critic(ref_agent, ld, la if type(la) == str else env.agents[la], ls)
+                    obs_rms = load_actor_critic(ref_agent, ld, la if type(la) == str else env.agents[la], ls)
+                    # print(ld, obs_rms)
+                    ref_agent.obs_rms = obs_rms
+                else:
+                    ref_agent = None
                 ref_agents_i.append(ref_agent)
             ref_agents.append(ref_agents_i)
             num_refs_all.append(len(ref_agents_i))
             # print(num_refs)
 
-    save_dir = mkdir2(args.save_dir, get_timestamp())
+    save_dir = mkdir2(args.save_dir, run_name)
     json.dump(vars(args), open(os.path.join(save_dir, "config.json"), "w"), indent=2)
 
     obs_locks = []
@@ -128,13 +154,21 @@ def _run(args, logger):
 
     for i, agent in enumerate(env.agents):
         # print(env.observation_spaces[agent].shape)
-        next_obs_buffer_size = obs_buffer_size + item_size * num_envs * (env.observation_spaces[agent].shape[0] + 2)
+        next_obs_buffer_size = obs_buffer_size + item_size * num_envs * (env.observation_spaces[agent].shape[0] + 4)
         # print(next_obs_buffer_size - obs_buffer_size)
         obs_indices.append((obs_buffer_size, next_obs_buffer_size))
         obs_buffer_size = next_obs_buffer_size
 
+    act_sizes = []
+    act_recover_fns = []
+    for agent in env.agents:
+        act_sizes.append(get_action_size(env.action_spaces[agent]))
+        act_recover_fns.append(get_action_recover_fn(env.action_spaces[agent]))
+
+    sum_act_sizes = sum(act_sizes)
+
     obs_shm = shared_memory.SharedMemory(create=True, size=obs_buffer_size)
-    act_shm = shared_memory.SharedMemory(create=True, size=num_envs * num_agents)
+    act_shm = shared_memory.SharedMemory(create=True, size=num_envs * sum_act_sizes * item_size)
     ref_shms = []
 
     # print("input_structures:", input_structures)
@@ -149,6 +183,8 @@ def _run(args, logger):
         else:
             train_fn = train_simultaneously
 
+    data_queue = mp.Queue() if args.use_wandb else None
+
     for i, agent in enumerate(env.agents):
         conn1, conn2 = mp.Pipe()
         main_agent_conns.append(conn1)
@@ -159,7 +195,8 @@ def _run(args, logger):
         ref_shm = None
 
         if args.use_reference:
-            num_actions = act_space.n
+            pass
+            # num_actions = act_space.n
 
             # print(num_refs_all[i], args.num_processes, num_actions, item_size)
             # ref_shm = shared_memory.SharedMemory(create=True, size=num_refs_all[i] * args.num_processes * num_actions * item_size)
@@ -187,7 +224,7 @@ def _run(args, logger):
         ap = Agent(i, env.agents[i], thread_limit=thread_limit, logger=logger.info, args=args,
                    obs_space=obs_space,
                    input_structure=input_structures[agent],
-                   act_space=act_space, main_conn=conn2,
+                   act_space=act_space, act_sizes=act_sizes, main_conn=conn2,
                    obs_shm=obs_shm, buffer_start=obs_indices[i][0], buffer_end=obs_indices[i][1],
                    obs_locks=[locks[i] for locks in obs_locks], act_shm=act_shm, ref_shm=None,
                    act_locks=[locks[i] for locks in act_locks], ref_locks=None,
@@ -195,7 +232,8 @@ def _run(args, logger):
                    save_dir=save_dir,
                    train=partial(train_fn, args.num_agents, i),
                    num_refs=num_refs,
-                   reference_agent=ref_agents[i])
+                   reference_agent=ref_agents[i] if args.use_reference else None,
+                   data_queue=data_queue)
         # print("123123123", i)
         agents.append(ap)
         ap.start()
@@ -204,6 +242,8 @@ def _run(args, logger):
         conn1, conn2 = mp.Pipe()
         main_env_conns.append(conn1)
         ev = Environment(i, logger.info, args, env=_make_env(), agents=env.agents, main_conn=conn2,
+                         act_sizes=act_sizes,
+                         act_recover_fns=act_recover_fns,
                          obs_shm=obs_shm,
                          obs_locks=obs_locks[i],
                          act_shm=act_shm,
@@ -218,6 +258,22 @@ def _run(args, logger):
         conn.send(None)
 
     num_updates = args.num_env_steps // args.num_steps // args.num_processes
+
+    if args.use_wandb:
+        agent_finish_count = 0
+        while agent_finish_count < num_agents:
+            data = data_queue.get()
+            # print(data)
+            if data is None:
+                agent_finish_count += 1
+            else:
+                agent_name = "agent-{}".format(data["agent"])
+                iteration = data["iteration"]
+                log_data = dict(iteration=iteration)
+                for key, value in data.items():
+                    if key != "agent" and key != "iteration":
+                        log_data[agent_name + "/" + key] = value
+                wandb.log(log_data, step=iteration)
 
     if args.reject_sampling:
         for i in range(num_updates):
@@ -241,8 +297,6 @@ def _run(args, logger):
 
     obs_shm.close()
     obs_shm.unlink()
-    act_shm.close()
-    act_shm.unlink()
 
     statistics = dict()
     for i, agent in enumerate(env.agents):
@@ -262,29 +316,115 @@ def _run(args, logger):
         # plot_statistics(statistics, "action_loss")
         # plot_statistics(statistics, "dist_entropy")
 
+    is_simple = args.env_name[:6] == "simple"
+    is_gw = args.env_name[-2:] == "gw"
+
     close_to = [0, 0, 0, 0, 0]
     gather_count = np.zeros((5, 5), dtype=int)
+    first_gather_count = np.zeros((5, 5), dtype=int)
+    gathered = False
     sum_reward = np.zeros(num_agents)
+    max_meet = args.episode_steps
+    actions_after_meeting = np.zeros((max_meet, 2, 5), dtype=float)
+    cnt_after_meeting = np.zeros(max_meet, dtype=int)
+    cnt_escalation_move = np.zeros(4, dtype=int)
+
+    reach_1 = 0
+    reach_key = 0
+    reach_2 = 0
+
+    prisoners_dilemma_statistics = [{
+        "initial_strategy": np.zeros(2),
+        "strategy_matrix": np.zeros((2, 2, 2)),
+        "cnt_matrix": np.zeros((2, 2))
+    } for _ in range(2)]
+
+    # half-cheetah
+    half_cheetah_statistics = {
+        "positions_run": [],
+        "positions": [],
+        "front_upright": 0,
+        "back_upright": 0,
+        "normal": 0,
+        "reversed": 0
+    }
+
+    episode_steps = args.episode_steps
+    if args.test_episode_steps is not None:
+        episode_steps = args.test_episode_steps
+    episode_steps = 1000
+    env.max_frames = episode_steps
+
     if args.play:
+        if args.env_name == "stag-hunt-gw" or args.env_name == "escalation-gw":
+            env.env.symmetry_plan = None
+        for i in range(num_agents):
+            main_agent_conns[i].send(args.render)
         env.seed(np.random.randint(10000))
         obs = env.reset()
-        if args.env_name == "stag-hunt-gw":
-            if args.render:
+        meet_count = 0
+        meet = False
+        if args.render:
+            if args.env_name == "stag-hunt-gw":
+                # print(obs)
                 for agent in env.env.agents:
                     print(agent.agent_id, agent.pos, agent.collective_return)
                 print("monster", env.env.stag_pos)
                 print("plant1", env.env.hare1_pos)
                 print("plant2", env.env.hare2_pos)
+                env.env.text_render()
+                print('---------------')
+            if args.env_name == "escalation-gw":
+                for agent in env.env.agents:
+                    print(agent.agent_id, agent.pos, agent.collective_return)
+                print("escalation", env.env.escalation_pos)
+                print("coop length", env.env.coop_length)
+                env.env.text_render()
                 print('---------------')
         dones = {agent: False for agent in env.agents}
         num_games = 0
         images = []
+        is_first = True
+
+        half_cheetah_data = {
+            "x": [],
+            "z": [],
+            "joint": []
+        }
+
         while True:
             actions = dict()
+            strats = dict()
             for i, agent in enumerate(env.agents):
                 main_agent_conns[i].send((obs[agent], dones[agent]))
-                actions[agent] = main_agent_conns[i].recv()
+                actions[agent], strats[agent] = main_agent_conns[i].recv()
                 # print(agent, actions[agent])
+
+            if args.env_name == "escalation-gw":
+                if env.env.coop_length > 0 and not env.env.escalation_over:
+                    meet_count = env.env.coop_length - 1
+                    cnt_after_meeting[meet_count] += 1
+                    actions_after_meeting[meet_count][0] += strats[0]
+                    actions_after_meeting[meet_count][1] += strats[1]
+
+            if args.env_name == "prisoners-dilemma":
+                if is_first:
+                    prisoners_dilemma_statistics[0]["initial_strategy"] = strats[0]
+                    prisoners_dilemma_statistics[1]["initial_strategy"] = strats[1]
+                    is_first = False
+                else:
+                    def get_action(one_hot):
+                        if one_hot[0] > 0.5:
+                            return 0
+                        else:
+                            return 1
+                    pre_actions = (get_action(obs[0][1:3]), get_action(obs[0][3:5]))
+                    # print(pre_actions)
+                    prisoners_dilemma_statistics[0]["strategy_matrix"][pre_actions] += strats[0]
+                    prisoners_dilemma_statistics[1]["strategy_matrix"][pre_actions] += strats[1]
+                    prisoners_dilemma_statistics[0]["cnt_matrix"][pre_actions] += 1
+                    prisoners_dilemma_statistics[1]["cnt_matrix"][pre_actions] += 1
+
             obs, rewards, dones, infos = env.step(actions)
             for i, agent in enumerate(env.agents):
                 sum_reward[i] += rewards[agent]
@@ -292,18 +432,80 @@ def _run(args, logger):
                 if env.env.agents[0].pos[0] == env.env.agents[1].pos[0] and \
                         env.env.agents[0].pos[1] == env.env.agents[1].pos[1]:
                     gather_count[env.env.agents[0].pos[0]][env.env.agents[0].pos[1]] += 1
-                if args.render:
-                    print(actions)
+                    if not gathered:
+                        first_gather_count[env.env.agents[0].pos[0]][env.env.agents[0].pos[1]] += 1
+                        gathered = True
+
+            if args.env_name == "escalation-gw":
+                if rewards[0] > 0 and rewards[1] > 0:
+                    meet = True
+                    if env.env.coop_length == 1:
+                        delta_pos = env.env.escalation_pos - env.env.agents[0].pos
+                        if delta_pos[0] == 0:
+                            if delta_pos[1] == -1:
+                                cnt_escalation_move[0] += 1
+                            elif delta_pos[1] == 1:
+                                cnt_escalation_move[1] += 1
+                        elif delta_pos[0] == -1:
+                            cnt_escalation_move[2] += 1
+                        elif delta_pos[0] == 1:
+                            cnt_escalation_move[3] += 1
+                    # meet_count += 1
+                else:
+                    meet = False
+            if args.env_name == "simple-key":
+                if env.aec_env.world.turn_reach_1:
+                    reach_1 += 1
+                if env.aec_env.world.turn_reach_key:
+                    reach_key += 1
+                if env.aec_env.world.turn_reach_2:
+                    reach_2 += 1
+            if args.env_name == "half-cheetah":
+                half_cheetah_statistics["positions_run"].append(deepcopy(env.env.sim.data.qpos))
+                angle = env.env.sim.data.qpos[2]
+                angle_limit = math.pi / 6
+                if -angle_limit < angle <= angle_limit:
+                    half_cheetah_statistics["normal"] += 1
+                elif angle_limit < angle <= math.pi - angle_limit:
+                    half_cheetah_statistics["front_upright"] += 1
+                elif angle_limit - math.pi < angle <= -angle_limit:
+                    half_cheetah_statistics["back_upright"] += 1
+                else:
+                    half_cheetah_statistics["reversed"] += 1
+                # print(env.env.get_body_com('bfoot'), env.env.get_body_com('ffoot'))
+                joints = ['bfoot', 'ffoot']
+                lengths = [0.094, 0.07]
+                for i, joint in enumerate(joints):
+                    pos = env.env.data.get_geom_xpos(joint)
+                    angle = env.env.data.get_joint_qpos(joint)
+                    # print(env.env.data.get_joint_xaxis(joint))
+                    # print(angle)
+                    # pos = pos + lengths[i] * 2 * math.sin(angle)
+                    half_cheetah_data["x"].append(pos[0])
+                    half_cheetah_data["z"].append(pos[2])
+                    half_cheetah_data["joint"].append(joint)
+            if args.render:
+                if args.env_name == "stag-hunt-gw":
+                    for i in range(args.num_agents):
+                        print(obs[i], actions[i])
                     for agent in env.env.agents:
                         print(agent.agent_id, agent.pos, agent.collective_return)
                     print("monster", env.env.stag_pos)
                     print("plant1", env.env.hare1_pos)
                     print("plant2", env.env.hare2_pos)
-                    print(env.steps, env.max_frames, dones)
-                    env.env.render()
+                    # print(env.steps, env.max_frames, dones)
+                    env.env.text_render()
                     print('---------------')
-            if args.render:
-                if args.env_name != "stag-hunt-gw":
+                elif args.env_name == "escalation-gw":
+                    for i in range(args.num_agents):
+                        print(obs[i], actions[i])
+                    for agent in env.env.agents:
+                        print(agent.agent_id, agent.pos, agent.collective_return)
+                    print("escalation", env.env.escalation_pos)
+                    print("coop length", env.env.coop_length)
+                    env.env.text_render()
+                    print('---------------')
+                else:
                     env.render()
                     # input()
                     time.sleep(0.1)
@@ -316,15 +518,26 @@ def _run(args, logger):
             for agent in env.agents:
                 not_done = not_done or not dones[agent]
 
+            if args.env_name == "escalation-gw":
+                if env.env.escalation_over:
+                    # not_done = False
+                    meet_count = 0
+                    # actions_after_meeting[0][actions[0]] += 1
+                    # actions_after_meeting[1][actions[1]] += 1
+
             if not not_done:
                 num_games += 1
                 # print(infos[env.agents[0]])
-                if args.env_name[:6] == "simple":
+                if is_simple:
                     close_to[np.argmin(infos[env.agents[0]])] += 1
                 if num_games >= args.num_games_after_training or args.num_games_after_training == -1:
                     break
                 obs = env.reset()
                 dones = {agent: False for agent in env.agents}
+                gathered = False
+                if args.env_name == "half-cheetah":
+                    # half_cheetah_statistics["positions"].append(deepcopy(half_cheetah_statistics["positions_run"]))
+                    half_cheetah_statistics["positions_run"] = []
 
         if args.gif:
             from a2c_ppo_acktr.multi_agent.utils import save_gif
@@ -333,24 +546,104 @@ def _run(args, logger):
     for i, agent in enumerate(agents):
         main_agent_conns[i].send(None)
         agent.join()
+        # print(agent)
 
     # print(close_to)
-    result["close_to"] = close_to
-    print(gather_count)
     # import seaborn as sns
     # sns.heatmap(gather_count)
     # plt.show()
-    print(sum_reward / args.num_games_after_training)
+    print("reward:", sum_reward / args.num_games_after_training)
+
+    play_statistics = dict(rewards=sum_reward / args.num_games_after_training,
+                           episode_steps=episode_steps)
+    if args.env_name == "stag-hunt-gw":
+        play_statistics["gather_count"] = gather_count
+        play_statistics["first_gather_count"] = first_gather_count
+
+    if args.env_name == "escalation-gw":
+        actions_after_meeting /= np.maximum(cnt_after_meeting, 1).reshape(max_meet, 1, 1)
+        play_statistics["actions_after_meeting"] = actions_after_meeting
+        play_statistics["cnt_after_meeting"] = cnt_after_meeting
+
+        if args.use_wandb:
+            for i in range(args.episode_steps):
+                wandb.run.summary["reach-{}".format(i + 1)] = cnt_after_meeting[i]
+    # if args.env_name[:6] == "simple":
+    #     play_statistics["close_to"] = close_to
+    #     result["close_to"] = close_to
+    if args.env_name == "simple-key":
+        play_statistics["reach_1"] = reach_1
+        play_statistics["reach_key"] = reach_key
+        play_statistics["reach_2"] = reach_2
+
+    if args.env_name == "prisoners-dilemma":
+        np.set_printoptions(precision=3, suppress=True)
+        for i in range(2):
+            prisoners_dilemma_statistics[i]["strategy_matrix"] /= \
+                np.maximum(1., prisoners_dilemma_statistics[i]["cnt_matrix"]).reshape(2, 2, 1)
+            play_statistics["initial_strategy_{}".format(i)] = prisoners_dilemma_statistics[i]["initial_strategy"]
+            play_statistics["strategy_matrix_{}".format(i)] = prisoners_dilemma_statistics[i]["strategy_matrix"]
+            play_statistics["cnt_matrix_{}".format(i)] = prisoners_dilemma_statistics[i]["cnt_matrix"] / args.num_games_after_training
+
+    if args.env_name == "half-cheetah":
+        # np.set_printoptions(precision=3, suppress=True)
+        # half_cheetah_statistics["average_pos"] /= args.num_games_after_training
+        # print("average_pos:", half_cheetah_statistics["average_pos"])
+
+        situations = ["normal", "reversed", "front_upright", "back_upright"]
+
+        for situation in situations:
+            play_statistics[situation] = half_cheetah_statistics[situation]
+
+        play_statistics["positions"] = half_cheetah_statistics["positions"]
+
+        df = pd.DataFrame(data=half_cheetah_data)
+        sns.lineplot(x="x", y="z", hue="joint", data=df.query("x > 80 and x < 100"))
+        plt.show()
+
+        plot = False
+        if plot:
+            data = {
+                "step": [],
+                "which_pos": [],
+                "which_run": [],
+                "pos": []
+            }
+            for i, positions_run in enumerate(half_cheetah_statistics["positions"]):
+                for j, position in enumerate(positions_run):
+                    for k in range(position.shape[0]):
+                        data["step"].append(j)
+                        data["which_pos"].append(f"pos_{k}")
+                        data["which_run"].append(f"run_{i}")
+                        data["pos"].append(position[k])
+
+            df = pd.DataFrame(data=data)
+            sns.lineplot(x="step", y="pos", hue="which_run", data=df.query("which_pos == 'pos_2'"))
+            plt.show()
+
+    if args.play:
+        joblib.dump(play_statistics, os.path.join(save_dir, "play_statistics.obj"))
+        show_play_statistics(args.env_name, play_statistics)
 
     # print(result["statistics"][env.agents[0]]["likelihood"])
     # print(result["statistics"][env.agents[1]]["likelihood"])
+
+    result["play_statistics"] = play_statistics
+    result["save_dir"] = save_dir
+
+    act_shm.close()
+    act_shm.unlink()
 
     return result
 
 
 def run(args):
+    log_level_mapping = {
+        "info": logging.INFO,
+        "error": logging.ERROR
+    }
     logger = mp.log_to_stderr()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(log_level_mapping[args.log_level])
     return _run(args, logger)
 
 

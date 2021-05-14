@@ -1,0 +1,30 @@
+{
+  "0": [
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new-2/2021-03-25T10:20:56.732443#2d01",
+      "load_step": 200,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new-2/2021-03-25T10:20:56.732443#2d01",
+      "load_step": 200,
+      "num_refs": 0,
+      "load_agent": 1
+    }
+  ],
+  "1": [
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new-2/2021-03-25T10:20:56.732443#2d01",
+      "load_step": 200,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/stag-hunt-gw/first-new-2/2021-03-25T10:20:56.732443#2d01",
+      "load_step": 200,
+      "num_refs": 0,
+      "load_agent": 1
+    }
+  ]
+}

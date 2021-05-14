@@ -14,7 +14,7 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-def get_args(add_extra_args_fn=None):
+def get_args(add_extra_args_fn=None, config=None):
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
         '--algo', default='a2c', help='algorithm to use: a2c | ppo | acktr')
@@ -187,7 +187,31 @@ def get_args(add_extra_args_fn=None):
         default=200.0,
         help='likelihood threshold')
     parser.add_argument(
+        '--likelihood-cap',
+        type=float,
+        help='likelihood cap')
+    parser.add_argument(
+        '--threshold-annealing-schedule',
+        type=str,
+        help='likelihood threshold annealing schedule')
+    parser.add_argument(
+        '--exploration-reward-annealing-schedule',
+        type=str,
+        help='exploration reward annealing schedule')
+    parser.add_argument(
+        '--no-load-refs',
+        action="store_true",
+        default=False)
+    parser.add_argument(
         '--use-likelihood-reward-cap',
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        '--use-dynamic-prediction-alpha',
+        action="store_false",
+        default=True)
+    parser.add_argument(
+        '--use-reward-predictor',
         action="store_true",
         default=False)
     parser.add_argument(
@@ -195,6 +219,42 @@ def get_args(add_extra_args_fn=None):
         type=float,
         default=0.0,
         help='likelihood alpha')
+    parser.add_argument(
+        '--reward-multiplier',
+        type=float,
+        default=1.0,
+        help='reward multiplier')
+    parser.add_argument(
+        '--prediction-reward-alpha',
+        type=float,
+        default=1.0,
+        help='prediction reward alpha')
+    parser.add_argument(
+        '--exploration-reward-alpha',
+        type=float,
+        default=1.0,
+        help='exploration reward alpha')
+    parser.add_argument(
+        '--reward-prediction-loss-coef',
+        type=float,
+        default=1.0)
+    parser.add_argument(
+        '--reward-prediction-multiplier',
+        type=float,
+        default=10.,
+        help='reward prediction multiplier')
+    parser.add_argument(
+        '--use-symmetry-for-reference',
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        '--wandb-project')
+    parser.add_argument(
+        '--wandb-group')
+    parser.add_argument(
+        '--use-wandb',
+        action='store_true',
+        default=False)
     parser.add_argument(
         '--clip-param',
         type=float,
@@ -230,8 +290,11 @@ def get_args(add_extra_args_fn=None):
         type=int,
         help='number of steps per episode')
     parser.add_argument(
+        '--test-episode-steps',
+        type=int,
+        help='number of steps per episode during test')
+    parser.add_argument(
         '--env-name',
-        default='PongNoFrameskip-v4',
         help='environment to train on (default: PongNoFrameskip-v4)')
     parser.add_argument(
         '--log-dir',
@@ -245,6 +308,9 @@ def get_args(add_extra_args_fn=None):
         '--config',
         help='config file')
     parser.add_argument(
+        '--env-config',
+        help='environment config file')
+    parser.add_argument(
         '--ref-config',
         help='reference config file')
     parser.add_argument(
@@ -256,13 +322,30 @@ def get_args(add_extra_args_fn=None):
         action="store_true",
         default=False)
     parser.add_argument(
+        '--no-exploration-rewards',
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        '--full-intrinsic',
+        action="store_true",
+        default=False)
+    parser.add_argument(
         '--plot-joint-plot',
         action="store_true",
         default=False)
     parser.add_argument(
+        '--fine-tune-start-iter',
+        type=int)
+    parser.add_argument(
         '--likelihood-gamma',
         type=float,
         default=0.995)
+    parser.add_argument(
+        '--exploration-threshold',
+        type=float)
+    parser.add_argument(
+        '--log-level',
+        default='info')
     parser.add_argument(
         '--play',
         dest='play',
@@ -364,6 +447,9 @@ def get_args(add_extra_args_fn=None):
 
     config_args = parser.parse_args()
     pre_args = argparse.Namespace()
+
+    if config is not None:
+        pre_args.__dict__.update(config)
 
     if config_args.config is not None:
         import json

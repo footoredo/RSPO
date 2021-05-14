@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import math
+
 from a2c_ppo_acktr.utils import AddBias, init
 
 """
@@ -28,6 +30,9 @@ class FixedCategorical(torch.distributions.Categorical):
             .unsqueeze(-1)
         )
 
+    def likelihoods(self, actions):
+        return self.log_probs(actions)
+
     def mode(self):
         return self.probs.argmax(dim=-1, keepdim=True)
 
@@ -36,6 +41,12 @@ class FixedCategorical(torch.distributions.Categorical):
 class FixedNormal(torch.distributions.Normal):
     def log_probs(self, actions):
         return super().log_prob(actions).sum(-1, keepdim=True)
+        # _log_probs = (super().log_prob(actions) + torch.log(self.scale) + math.log(math.sqrt(2 * math.pi))) / 100.
+        # return _log_probs.sum(-1, keepdim=True)
+
+    def likelihoods(self, actions):
+        log_probs = super().log_prob(actions) + torch.log(self.scale) + math.log(math.sqrt(2 * math.pi))
+        return log_probs.sum(-1, keepdim=True)
 
     def entrop(self):
         return super.entropy().sum(-1)
@@ -48,6 +59,9 @@ class FixedNormal(torch.distributions.Normal):
 class FixedBernoulli(torch.distributions.Bernoulli):
     def log_probs(self, actions):
         return super.log_prob(actions).view(actions.size(0), -1).sum(-1).unsqueeze(-1)
+
+    def likelihoods(self, actions):
+        return self.log_probs(actions)
 
     def entropy(self):
         return super().entropy().sum(-1)
@@ -97,6 +111,7 @@ class DiagGaussian(nn.Module):
             zeros = zeros.cuda()
 
         action_logstd = self.logstd(zeros)
+        # print(action_mean)
         return FixedNormal(action_mean, action_logstd.exp())
 
 

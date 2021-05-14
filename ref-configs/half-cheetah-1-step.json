@@ -1,0 +1,40 @@
+{
+  "0": [
+    {
+      "load_dir": "./sync-results/half-cheetah/0-step/2021-05-10T15:12:56.144101#d3f7",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/half-cheetah/0-step/2021-05-10T16:19:41.391460#b36b",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/half-cheetah/0-step/2021-05-10T16:03:30.087745#8ec7",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/half-cheetah/0-step/2021-05-10T15:47:09.561076#3ad1",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/half-cheetah/0-step/2021-05-10T14:44:58.084500#30f5",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/half-cheetah/0-step/2021-05-10T14:58:58.682745#90af",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/half-cheetah/0-step-action-mask/2021-05-12T11:41:10.514391#cb32",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/half-cheetah/0-step-action-mask/2021-05-12T12:03:52.463094#e8d0",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/half-cheetah/0-step-action-mask/2021-05-12T12:26:24.824378#292a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        }
+    ]
+}

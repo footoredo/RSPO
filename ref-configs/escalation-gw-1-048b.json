@@ -1,0 +1,30 @@
+{
+  "0": [
+    {
+      "load_dir": "./sync-results/escalation-gw/first-4/2021-04-12T11:01:42.420904#048b",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/first-4/2021-04-12T11:01:42.420904#048b",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 1
+    }
+  ],
+  "1": [
+    {
+      "load_dir": "./sync-results/escalation-gw/first-4/2021-04-12T11:01:42.420904#048b",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/first-4/2021-04-12T11:01:42.420904#048b",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 1
+    }
+  ]
+}

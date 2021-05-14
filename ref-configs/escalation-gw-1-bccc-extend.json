@@ -1,0 +1,174 @@
+{
+  "0": [
+    {
+      "load_dir": "./sync-results/escalation-gw/first-6/2021-04-13T10:54:29.862091#bccc",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/first-6/2021-04-13T10:54:29.862091#bccc",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:50:11.526161#20f1",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:50:11.526161#20f1",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:38:57.383904#0f08",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:38:57.383904#0f08",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T11:02:48.647541#b460",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T11:02:48.647541#b460",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:24:40.523174#a1ff",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:24:40.523174#a1ff",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:31:46.830830#8ecd",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:31:46.830830#8ecd",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:56:53.798194#7ec2",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:56:53.798194#7ec2",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    }
+  ],
+  "1": [
+    {
+      "load_dir": "./sync-results/escalation-gw/first-6/2021-04-13T10:54:29.862091#bccc",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/first-6/2021-04-13T10:54:29.862091#bccc",
+      "load_step": null,
+      "num_refs": 0,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:50:11.526161#20f1",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:50:11.526161#20f1",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:38:57.383904#0f08",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:38:57.383904#0f08",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T11:02:48.647541#b460",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T11:02:48.647541#b460",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:24:40.523174#a1ff",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:24:40.523174#a1ff",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:31:46.830830#8ecd",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:31:46.830830#8ecd",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:56:53.798194#7ec2",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 0
+    },
+    {
+      "load_dir": "./sync-results/escalation-gw/1-bccc-2exi-other-play/2021-04-14T10:56:53.798194#7ec2",
+      "load_step": null,
+      "num_refs": 2,
+      "load_agent": 1
+    }
+  ]
+}

@@ -11,6 +11,7 @@ from a2c_ppo_acktr.multi_agent.utils import get_timestamp, make_env, mkdir
 def add_extra_args(parser):
     parser.add_argument('--load-dirs', nargs="*")
     parser.add_argument('--list-num-refs', nargs="*", type=int)
+    parser.add_argument('--load-steps', nargs="*")
     parser.add_argument('--test-steps', type=int)
     parser.add_argument('--symmetry')  # format: "0,1|3,4,5" (agent_id)
     return parser
@@ -60,6 +61,9 @@ def main():
     args.reject_sampling = False
     n_agents = args.num_agents
     load_dirs = args.load_dirs
+    load_steps = args.load_steps
+    if load_steps is None:
+        load_steps = [None] * len(load_dirs)
     n_policies = len(load_dirs)
     list_num_refs = np.array(args.list_num_refs).reshape(n_policies, n_agents).tolist()
 
@@ -86,7 +90,7 @@ def main():
             for k in range(n_policies):
                 ref = {
                     "load_dir": load_dirs[k],
-                    "load_step": None,
+                    "load_step": load_steps[k],
                     "num_refs": list_num_refs[k][j],
                     "load_agent": env.agents[j]
                 }
@@ -101,6 +105,7 @@ def main():
 
     for i in range(n_policies):
         args.load_dir = load_dirs[i]
+        args.load_step = load_steps[i]
         args.num_refs = list_num_refs[i]
         result = run(args)
         likelihood = np.zeros(n_policies)

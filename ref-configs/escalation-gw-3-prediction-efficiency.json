@@ -1,0 +1,78 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-predictor/2021-04-20T14:26:09.811285#2f5a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-predictor/2021-04-20T14:26:09.811285#2f5a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/1-prediction-2-rewards-efficiency/2021-04-29T10:02:53.847136#bdf1",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/1-prediction-2-rewards-efficiency/2021-04-29T10:02:53.847136#bdf1",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/2-prediction-2-rewards-efficiency/2021-04-29T10:16:10.318831#3fc6",
+            "load_step": null,
+            "num_refs": 4,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/2-prediction-2-rewards-efficiency/2021-04-29T10:16:10.318831#3fc6",
+            "load_step": null,
+            "num_refs": 4,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-predictor/2021-04-20T14:26:09.811285#2f5a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-predictor/2021-04-20T14:26:09.811285#2f5a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/1-prediction-2-rewards-efficiency/2021-04-29T10:02:53.847136#bdf1",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/1-prediction-2-rewards-efficiency/2021-04-29T10:02:53.847136#bdf1",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/2-prediction-2-rewards-efficiency/2021-04-29T10:16:10.318831#3fc6",
+            "load_step": null,
+            "num_refs": 4,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/2-prediction-2-rewards-efficiency/2021-04-29T10:16:10.318831#3fc6",
+            "load_step": null,
+            "num_refs": 4,
+            "load_agent": "1"
+        }
+    ]
+}

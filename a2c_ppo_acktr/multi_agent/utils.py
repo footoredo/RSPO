@@ -4,8 +4,6 @@ import os
 import pathlib
 import json
 
-from a2c_ppo_acktr.storage import RolloutStorage
-
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -14,28 +12,147 @@ from sklearn.cluster import KMeans, SpectralClustering
 
 
 CONFIDENTIAL = json.load(open("./confidential.json"))
+SSH = None
 
 
-def get_remote(filename):
+# plt.rcParams["font.family"] = "monospace"
+# plt.rcParams["lines.linewidth"] = 2.0
+# plt.rcParams["axes.edgecolor"] = "#6b6b76"
+# # plt.rcParams["axes.labelcolor"] = "#6b6b76"
+# plt.rcParams["axes.spines.top"] = False
+# plt.rcParams["axes.spines.right"] = False
+# plt.rcParams["grid.alpha"] = 0.5
+# plt.rcParams["grid.alpha"] = 0.5
+
+
+def show_play_statistics(env_name, statistics, episode_steps=None):
+    try:
+        np.set_printoptions(precision=3, suppress=True)
+        keys = []
+        if "episode_steps" in statistics:
+            episode_steps = statistics["episode_steps"]
+        if env_name == "stag-hunt-gw":
+            keys = ["gather_count"]
+        elif env_name == "escalation-gw":
+            max_step = 0
+            for i in reversed(range(episode_steps)):
+                if statistics["cnt_after_meeting"][i] > 0:
+                    max_step = i + 1
+                    break
+            for i in range(max_step):
+                print(i + 1, "\t", statistics["cnt_after_meeting"][i], "\t",
+                      statistics["actions_after_meeting"][i][0],
+                      statistics["actions_after_meeting"][i][1])
+        elif env_name == "simple-key":
+            keys = ["reach_1", "reach_key", "reach_2"]
+        elif env_name == "prisoners-dilemma":
+            for i in range(2):
+                print("player {}:".format(i))
+                print("initial_strategy:", statistics[f"initial_strategy_{i}"])
+                for j in range(2):
+                    for k in range(2):
+                        print("({}, {}) strat:".format(j, k), statistics[f"strategy_matrix_{i}"][j, k],
+                              "cnt:", statistics[f"cnt_matrix_{i}"][j, k])
+        elif env_name == "half-cheetah":
+            keys = ["normal", "reversed", "front_upright", "back_upright"]
+        else:
+            raise NotImplementedError
+
+        for key in keys:
+            print(key, statistics[key])
+
+    except KeyError:
+        pass
+
+
+def get_action_size(action_space, in_buffer=False):
+    if action_space.__class__.__name__ == "Discrete":
+        return 1 if in_buffer else action_space.n
+    elif action_space.__class__.__name__ == "Box":
+        return action_space.shape[0]
+    else:
+        raise NotImplementedError
+
+
+def get_action_recover_fn(action_space):
+    if action_space.__class__.__name__ == "Discrete":
+        return lambda a: int(a[0])
+    elif action_space.__class__.__name__ == "Box":
+        return lambda a: a
+    else:
+        raise NotImplementedError
+
+
+def smooth_data(data, gamma):
+    last = data[0]
+    smoothed_data = np.zeros_like(data)
+    for i in range(data.shape[0]):
+        smoothed_data[i] = last * gamma + data[i] * (1 - gamma)
+        # if i == 0:
+        #     print(smoothed_data[i], data[i])
+        last = smoothed_data[i]
+    # from scipy import signal
+    # smoothed_data = signal.savgol_filter(data, **args)
+    return smoothed_data
+
+
+def get_ssh():
     from paramiko import SSHClient
-    from scp import SCPClient
+
+    global SSH
+    if SSH is not None:
+        return SSH
+
+    ssh_config = CONFIDENTIAL["ssh"]
+
+    which = "local"
+
+    ssh = SSHClient()
+    ssh.load_system_host_keys()
+    ssh.connect(ssh_config["hostname"][which], username=ssh_config["username"],
+                key_filename=ssh_config["key_filename"], port=ssh_config["port"][which])
+
+    SSH = ssh
+    return ssh
+
+
+def get_remote_file(filename):
+    from scp import SCPClient, SCPException
+
+    ssh = get_ssh()
 
     ssh_config = CONFIDENTIAL["ssh"]
     home_dir = ssh_config["remote_home_dir"]
     tmp_dir = "/tmp/get_remote"
 
-    ssh = SSHClient()
-    ssh.load_system_host_keys()
-    ssh.connect(ssh_config["hostname"], username=ssh_config["username"],
-                key_filename=ssh_config["key_filename"])
-
     local_path = os.path.join(tmp_dir, get_timestamp())
     mkdir(tmp_dir)
 
     with SCPClient(ssh.get_transport()) as scp:
-        scp.get(os.path.join(home_dir, filename), local_path)
+        try:
+            scp.get(os.path.join(home_dir, filename), local_path)
+        except SCPException:
+            return None
 
     return local_path
+
+
+def remote_listdir(path):
+    import time
+
+    ssh = get_ssh()
+
+    ssh_config = CONFIDENTIAL["ssh"]
+    home_dir = ssh_config["remote_home_dir"]
+    remote_path = os.path.join(home_dir, path)
+
+    stdin, stdout, stderr = ssh.exec_command(f"ls {remote_path}")
+    time.sleep(1)  # fixed a bug in paramiko
+
+    folders = []
+    for line in stdout:
+        folders.append(line.strip("\n"))
+    return folders
 
 
 def get_timestamp():
@@ -44,27 +161,38 @@ def get_timestamp():
     return "{}#{}".format(datetime.now().isoformat(), binascii.hexlify(os.urandom(2)).decode())
 
 
-def make_env(env_name, steps):
+def make_env(env_name, steps, env_config=None):
     if steps is None:
         steps = 32
+    env_config_file = env_config or f"./env-configs/{env_name}-default.json"
+    env_config = json.load(open(env_config_file))
     if env_name == "simple-tag":
         from pettingzoo.mpe import simple_tag_v1
-        return simple_tag_v1.parallel_env(num_good=1, num_adversaries=3, num_obstacles=4, max_frames=steps)
+        return simple_tag_v1.parallel_env(max_frames=steps, **env_config)
     elif env_name == "simple":
         from pettingzoo.mpe import simple_v1
-        return simple_v1.parallel_env(num_targets=2, max_frames=steps, depth=1, reward_scale=1., size_scale=100.)
+        return simple_v1.parallel_env(max_frames=steps, **env_config)
     elif env_name == "simple-key":
         from pettingzoo.mpe import simple_key_v1
-        return simple_key_v1.parallel_env(max_frames=steps)
+        return simple_key_v1.parallel_env(max_frames=steps, **env_config)
     elif env_name == "simple-more":
         from pettingzoo.mpe import simple_more_v1
-        return simple_more_v1.parallel_env(num_targets=5, reward_scales=1., size_scales=1., max_frames=steps)
+        return simple_more_v1.parallel_env(max_frames=steps, **env_config)
     elif env_name == "simple-more-3":
         from pettingzoo.mpe import simple_more_v1
-        return simple_more_v1.parallel_env(num_targets=3, reward_scales=1., size_scales=1., max_frames=steps)
+        return simple_more_v1.parallel_env(max_frames=steps, **env_config)
     elif env_name == 'stag-hunt-gw':
         from pettingzoo.mappo_ssd import stag_hunt_gw_v1
-        return stag_hunt_gw_v1.parallel_env(max_frames=steps, share_reward=False, shape_reward=False, shape_beta=0.8, gore=-2)
+        return stag_hunt_gw_v1.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'escalation-gw':
+        from pettingzoo.mappo_ssd import escalation_gw_v1
+        return escalation_gw_v1.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'prisoners-dilemma':
+        from pettingzoo.matrix_game import prisoners_dilemma_v1
+        return prisoners_dilemma_v1.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'half-cheetah':
+        from pettingzoo.mujoco import half_cheetah_v3
+        return half_cheetah_v3.parallel_env(max_frames=steps, **env_config)
     else:
         raise NotImplementedError(env_name)
 
@@ -97,7 +225,7 @@ def jointplot(data1, data2, save_path=None, title="likelihood-return"):
     data1 = to_numpy(data1).reshape(-1)
     data2 = to_numpy(data2).reshape(-1)
     df = pd.DataFrame(dict(x=data1, y=data2))
-    sns.jointplot(data=df, x="x", y="y", kind="kde", xlim=(0, 500), ylim=(0.0, 2.))
+    sns.jointplot(data=df, x="x", y="y", kind="kde", xlim=(0, 500), ylim=(0.0, 10.))
     # sns.jointplot(data=df, x="x", y="y", kind="kde")
     plt.title(title)
     if save_path is None:
@@ -119,7 +247,14 @@ def load_actor_critic(actor_critic, load_dir, agent_name, load_step=None):
     else:
         load_path = os.path.join(load_dir, str(agent_name), "model.obj")
     # print(load_path)
-    actor_critic.load_state_dict(torch.load(load_path))
+    loaded = torch.load(load_path)
+    if type(loaded) is tuple and len(loaded) == 2:
+        state_dict, obs_rms = loaded
+    else:
+        state_dict = loaded
+        obs_rms = None
+    actor_critic.load_state_dict(state_dict)
+    return obs_rms
 
 
 def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir, n_ref=0, is_ref=False):
@@ -144,8 +279,9 @@ def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir,
             obs_space.shape,
             act_space,
             base_kwargs={'recurrent': args.recurrent_policy,
-                         'critic_dim': n_ref + 1,
-                         'is_ref': is_ref})
+                         'critic_dim': n_ref * 2 + 1,
+                         'is_ref': is_ref,
+                         'predict_reward': args.use_reward_predictor})
         # if not is_ref:
         #     print("B")
 
@@ -223,7 +359,7 @@ def calc_sim(direc1, direc2):
     return sim
 
 
-def extract_trajectory(rollout: RolloutStorage):
+def extract_trajectory(rollout):
     length = rollout.actions.size()[0]
     width = rollout.actions.size()[1]
 
@@ -352,11 +488,7 @@ def plot_agent_statistics(statistics, keyword, ref_indices=None):
         plt.show()
 
 
-def plot_statistics(statistics, keyword, max_iter=None):
-    import seaborn as sns
-    import pandas as pd
-    import matplotlib.pyplot as plt
-
+def _plot_statistics(statistics, keyword, max_iter=None, smooth=None):
     iters = []
     values = []
     names = []
@@ -365,15 +497,42 @@ def plot_statistics(statistics, keyword, max_iter=None):
 
     for agent in agents:
         s = statistics[agent][keyword]
+        _v = []
         for it, v in s:
             if max_iter is None or it <= max_iter:
                 iters.append(it)
-                values.append(v)
+                _v.append(v)
                 names.append(agent)
+
+        if smooth is not None:
+            _v = smooth_data(np.array(_v), smooth).tolist()
+        values += _v
+
+    return iters, values, names
+
+
+def plot_statistics(statistics, keyword, max_iter=None, smooth=None, xscale="linear", yscale="linear"):
+    import seaborn as sns
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    if type(statistics) == list:
+        iters = []
+        values = []
+        names = []
+        for s in statistics:
+            _iters, _values, _names = _plot_statistics(s, keyword, max_iter, smooth)
+            iters += _iters
+            values += _values
+            names += _names
+    else:
+        iters, values, names = _plot_statistics(statistics, keyword, max_iter, smooth)
 
     df = pd.DataFrame(dict(iteration=iters, value=values, agent=names))
     fig, ax = plt.subplots()
+    # print(df["value"])
     sns.lineplot(x="iteration", y="value", hue="agent", data=df, ax=ax)
+    ax.set(xscale=xscale, yscale=yscale)
     ax.set_title(keyword)
     # plt.tight_layout()
     plt.show()

@@ -1,0 +1,30 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ]
+}

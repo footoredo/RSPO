@@ -1,0 +1,30 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/escalation-gw/first-prediction-no-stop/2021-04-25T18:24:55.851083#aa63",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/first-prediction-no-stop/2021-04-25T18:24:55.851083#aa63",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/escalation-gw/first-prediction-no-stop/2021-04-25T18:24:55.851083#aa63",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/first-prediction-no-stop/2021-04-25T18:24:55.851083#aa63",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ]
+}

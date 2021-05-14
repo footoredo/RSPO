@@ -1,0 +1,54 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/1-fixed-fine-tune/2021-05-03T02:37:00.000367#8dfb",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/1-fixed-fine-tune/2021-05-03T02:37:00.000367#8dfb",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/0-fixed/2021-05-02T15:37:10.434516#aa0a",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/1-fixed-fine-tune/2021-05-03T02:37:00.000367#8dfb",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/prisoners-dilemma/1-fixed-fine-tune/2021-05-03T02:37:00.000367#8dfb",
+            "load_step": null,
+            "num_refs": 2,
+            "load_agent": "1"
+        }
+    ]
+}

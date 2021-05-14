@@ -1,5 +1,8 @@
+import os
+import numpy as np
 import torch
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
+from a2c_ppo_acktr.multi_agent.utils import jointplot, mkdir2
 
 
 def _flatten_helper(T, N, _tensor):
@@ -9,16 +12,19 @@ def _flatten_helper(T, N, _tensor):
 class RolloutStorage(object):
     def __init__(self, num_steps, num_processes, obs_shape, action_space,
                  recurrent_hidden_state_size, num_refs=0, num_value_refs=0):
+        self.original_obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
         self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
         self.recurrent_hidden_states = torch.zeros(
             num_steps + 1, num_processes, recurrent_hidden_state_size)
-        self.rewards = torch.zeros(num_steps, num_processes, 1 + num_refs * 2)
+        self.original_rewards = torch.zeros(num_steps, num_processes, 1)
+        self.rewards = torch.zeros(num_steps, num_processes, 1 + num_refs * 3)
         self.num_refs = num_refs
         self.num_value_refs = num_value_refs
-        self.value_preds = torch.zeros(num_steps + 1, num_processes, 1 + num_value_refs)
-        self.returns = torch.zeros(num_steps + 1, num_processes, 1 + num_refs * 2)
+        self.value_preds = torch.zeros(num_steps + 1, num_processes, 1 + num_value_refs * 2)
+        self.returns = torch.zeros(num_steps + 1, num_processes, 1 + num_refs * 3)
         self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
         self.dice_deps = torch.zeros(num_steps, num_processes, 1)
+        self.interpolate_masks = torch.zeros(num_steps, num_processes, num_refs * 2 + 1)
         self.action_loss_coef = 1.0
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
@@ -37,8 +43,10 @@ class RolloutStorage(object):
         self.step = 0
 
     def to(self, device):
+        self.original_obs = self.original_obs.to(device)
         self.obs = self.obs.to(device)
         self.recurrent_hidden_states = self.recurrent_hidden_states.to(device)
+        self.original_rewards = self.original_rewards.to(device)
         self.rewards = self.rewards.to(device)
         self.value_preds = self.value_preds.to(device)
         self.returns = self.returns.to(device)
@@ -48,8 +56,9 @@ class RolloutStorage(object):
         self.masks = self.masks.to(device)
         self.bad_masks = self.bad_masks.to(device)
 
-    def insert(self, obs, recurrent_hidden_states, actions, action_log_probs,
-               value_preds, rewards, masks, bad_masks):
+    def insert(self, obs, original_obs, recurrent_hidden_states, actions, action_log_probs,
+               value_preds, rewards, original_rewards, masks, bad_masks):
+        self.original_obs[self.step + 1].copy_(original_obs)
         self.obs[self.step + 1].copy_(obs)
         self.recurrent_hidden_states[self.step +
                                      1].copy_(recurrent_hidden_states)
@@ -60,16 +69,77 @@ class RolloutStorage(object):
         # print(self.rewards[self.step], rewards)
         # print(self.rewards[self.step].size(), rewards.size())
         self.rewards[self.step].copy_(rewards)
+        self.original_rewards[self.step].copy_(original_rewards)
         self.masks[self.step + 1].copy_(masks)
         self.bad_masks[self.step + 1].copy_(bad_masks)
 
         self.step = (self.step + 1) % self.num_steps
 
     def after_update(self):
+        self.original_obs[0].copy_(self.original_obs[-1])
         self.obs[0].copy_(self.obs[-1])
         self.recurrent_hidden_states[0].copy_(self.recurrent_hidden_states[-1])
         self.masks[0].copy_(self.masks[-1])
         self.bad_masks[0].copy_(self.bad_masks[-1])
+
+    def plot_joint_plot(self, episode_steps, agent_name):
+        num_refs = self.num_refs
+        num_episodes = self.rewards.size()[0] // episode_steps * self.rewards.size()[1]
+        returns = np.zeros(num_episodes)
+        likelihoods = np.zeros((num_episodes, self.num_refs))
+        episode_cnt = 0
+        for i in range(self.rewards.size()[0] // episode_steps):
+            for j in range(self.rewards.size()[1]):
+                for k in range(episode_steps):
+                    returns[episode_cnt] += self.rewards[i * episode_steps + k, j, 0].item()
+                    likelihoods[episode_cnt] += self.rewards[i * episode_steps + k, j, 1 + num_refs * 2:].detach().numpy()
+                episode_cnt += 1
+
+        for cni in range(num_refs):
+            if cni < 2:
+                continue
+            # save_dir = mkdir2(self.save_dir, "ref-{}".format(cni))
+            # save_path = os.path.join(save_dir, "{}.png".format(self.cnt))
+            # save_path = None
+            # jointplot(cn[si][:, cni], return_batch[:, 0].numpy()[si],
+            #           save_path=save_path, title="agent-{} ref-{}".format(self.agent_name, cni))
+            jointplot(likelihoods[:, cni], returns,
+                      save_path=None, title="agent-{} ref-{}".format(agent_name, cni))
+
+    # Call this after compute_returns
+    def compute_interpolate_masks(self, thresholds: torch.Tensor, alphas, use_filters):
+        # print(use_reward)
+        shape = list(self.rewards.size()[:2])
+        if self.num_refs == 0:
+            interpolate_masks = alphas[0] * torch.ones(shape + [1])
+        else:
+            if not any(use_filters):
+                extrinsic_mask = torch.ones(shape + [1])
+                prediction_masks = torch.ones(shape + [self.num_refs])
+                exploration_masks = torch.ones(shape + [self.num_refs])
+            else:
+                likelihoods = self.returns[:-1, :, 1 + self.num_refs * 2:]
+                failed_mask = torch.gt(thresholds, likelihoods)
+                if use_filters[0]:
+                    extrinsic_mask = 1. - (torch.any(failed_mask, dim=2, keepdim=True)).float()
+                else:
+                    extrinsic_mask = torch.ones(shape + [1])
+                if use_filters[1]:
+                    prediction_masks = 1. - failed_mask.float()
+                else:
+                    prediction_masks = torch.ones(shape + [self.num_refs])
+                if use_filters[2]:
+                    exploration_masks = failed_mask.float()
+                else:
+                    exploration_masks = torch.ones(shape + [self.num_refs])
+
+            # print(extrinsic_mask.size(), prediction_masks.size(), exploration_masks.size())
+            # print(self.num_refs, extrinsic_mask.size(), prediction_masks.size(), exploration_masks.size(), failed_mask.size(), self.returns.size())
+            interpolate_masks = torch.cat([alphas[0] * extrinsic_mask, alphas[1] * prediction_masks,
+                                           alphas[2] * exploration_masks], dim=2)
+        # print(interpolate_masks.size(), interpolate_masks[0, 0], self.rewards[0, 0])
+        print(interpolate_masks.size(), self.interpolate_masks.size())
+        self.interpolate_masks.copy_(interpolate_masks)
 
     def compute_returns(self,
                         next_value,
@@ -78,10 +148,11 @@ class RolloutStorage(object):
                         gae_lambda,
                         likelihood_gamma,
                         use_proper_time_limits=True):
-        assert not use_proper_time_limits, "Not Implemented"
+        # assert not use_proper_time_limits, "Not Implemented"
         gamma2 = likelihood_gamma
         num_refs = self.num_refs
-        if use_proper_time_limits:
+
+        if False:
             if use_gae:
                 self.value_preds[-1] = next_value
                 gae = 0
@@ -104,25 +175,44 @@ class RolloutStorage(object):
                 self.value_preds[-1] = next_value
                 gae = 0
                 num_value_refs = self.num_value_refs
-                assert num_refs == num_value_refs
+                # assert num_refs == num_value_refs
                 # print(self.value_preds)
                 # print(self.rewards.size(0))
                 for step in reversed(range(self.rewards.size(0))):
-                    delta = self.rewards[step, :, :1 + num_refs] + \
-                            gamma * self.value_preds[step + 1, :, :1 + num_refs] * self.masks[step + 1] - \
-                            self.value_preds[step, :, :1 + num_refs]
+                    # print(self.rewards.size(), self.value_preds.size())
+                    if num_refs == num_value_refs:
+                        delta = self.rewards[step, :, :1 + num_refs * 2] + \
+                                gamma * self.value_preds[step + 1, :, :1 + num_refs * 2] * self.masks[step + 1] - \
+                                self.value_preds[step, :, :1 + num_refs * 2]
+                    else:
+                        delta = self.rewards[step, :, :1 + num_refs * 2]
                     gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
-                    self.returns[step, :, :1 + num_refs] = gae + self.value_preds[step]
-                    self.returns[step, :, 1 + num_refs:] = \
-                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs:], self.masks[step + 1]) + \
-                        self.rewards[step, :, 1 + num_refs:]
+                    if use_proper_time_limits:
+                        gae = gae * self.bad_masks[step + 1]
+                    if num_refs == num_value_refs:
+                        self.returns[step, :, :1 + num_refs * 2] = gae + self.value_preds[step]
+                    else:
+                        self.returns[step, :, :1 + num_refs * 2] = gae
+
+                    # delta = self.rewards[step, :, :1] + \
+                    #         gamma * self.value_preds[step + 1, :, :1] * self.masks[step + 1] - \
+                    #         self.value_preds[step, :, :1]
+                    # gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
+                    # self.returns[step, :, :1] = gae + self.value_preds[step, :, :1]
+                    # self.returns[step, :, 1:1 + num_refs] = self.rewards[step, :, 1:1 + num_refs]
+
+                    self.returns[step, :, 1 + num_refs * 2:] = \
+                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs * 2:], self.masks[step + 1]) + \
+                        self.rewards[step, :, 1 + num_refs * 2:]
             else:
+                if use_proper_time_limits:
+                    raise NotImplementedError
                 # print("GAEGEAGEAGEAEG")
                 # gamma = torch.tensor([gamma] + [0.] * (self.reward_dim - 1), dtype=torch.float)
                 # self.returns[-1] = next_value
                 self.returns[-1].zero_()
                 if num_refs == self.num_value_refs:
-                    self.returns[-1, :, :1 + num_refs] = next_value[:, :1 + num_refs]
+                    self.returns[-1, :, :1 + num_refs * 2] = next_value[:, :1 + num_refs * 2]
                 else:
                     self.returns[-1, :, 0] = next_value[:, 0]
                 # print(next_value, self.rewards[-1])
@@ -136,12 +226,12 @@ class RolloutStorage(object):
                     # print(torch.square(self.rewards[step, :, 1:] - self.returns[step, :, 0]).size())
                     # print(torch.mul(self.returns[step + 1, :, 1:], self.masks[step + 1]).size())
                     # print(torch.mul(self.returns[step + 1], self.masks[step + 1]).size())
-                    self.returns[step, :, :1 + num_refs] = \
-                        gamma * torch.mul(self.returns[step + 1, :, :1 + num_refs], self.masks[step + 1]) + \
-                        self.rewards[step, :, :1 + num_refs]
-                    self.returns[step, :, 1 + num_refs:] = \
-                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs:], self.masks[step + 1]) + \
-                        self.rewards[step, :, 1 + num_refs:]
+                    self.returns[step, :, :1 + num_refs * 2] = \
+                        gamma * torch.mul(self.returns[step + 1, :, :1 + num_refs * 2], self.masks[step + 1]) + \
+                        self.rewards[step, :, :1 + num_refs * 2]
+                    self.returns[step, :, 1 + num_refs * 2:] = \
+                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs * 2:], self.masks[step + 1]) + \
+                        self.rewards[step, :, 1 + num_refs * 2:]
                     # self.returns[step, :, 1:] = torch.square(
                     #     self.rewards[step, :, 1:] - self.returns[step, :, :1]) + gamma2 * torch.mul(
                     #     self.returns[step + 1, :, 1:], self.masks[step + 1])
@@ -150,9 +240,9 @@ class RolloutStorage(object):
                     #     print(self.returns[step])
             if num_refs > 0:
                 for step in range(1, self.rewards.size()[0]):
-                    self.returns[step, :, 1 + num_refs:] = \
-                        self.returns[step - 1, :, 1 + num_refs:] * self.masks[step] + \
-                        self.returns[step, :, 1 + num_refs:] * (1 - self.masks[step])
+                    self.returns[step, :, 1 + num_refs * 2:] = \
+                        self.returns[step - 1, :, 1 + num_refs * 2:] * self.masks[step] + \
+                        self.returns[step, :, 1 + num_refs * 2:] * (1 - self.masks[step])
         # if dice_lambda is not None:
         #     self.compute_dice_deps(dice_lambda)
 
@@ -209,6 +299,8 @@ class RolloutStorage(object):
         masks = step_view(self.masks)
         # print(episode_steps, masks.size())
         action_log_probs = step_view(self.action_log_probs)
+        interpolate_masks = step_view(self.interpolate_masks)
+        rewards = step_view(self.original_rewards)
 
         if advantages is not None:
             advantages = step_view(advantages)
@@ -222,14 +314,16 @@ class RolloutStorage(object):
                 return_batch = returns[indices]
                 masks_batch = masks[indices]
                 old_action_log_probs_batch = action_log_probs[indices]
+                interpolate_masks_batch = interpolate_masks[indices]
+                rewards_batch = rewards[indices]
 
                 if advantages is None:
                     adv_targ = None
                 else:
                     adv_targ = advantages[indices]
 
-                yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+                yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, \
+                      masks_batch, old_action_log_probs_batch, adv_targ, interpolate_masks_batch, rewards_batch
 
     def recurrent_generator(self, advantages, num_mini_batch, episode_steps=1):
         assert episode_steps == 1
@@ -249,6 +343,7 @@ class RolloutStorage(object):
             masks_batch = []
             old_action_log_probs_batch = []
             adv_targ = []
+            interpolate_masks_batch = []
 
             for offset in range(num_envs_per_batch):
                 ind = perm[start_ind + offset]
@@ -262,6 +357,7 @@ class RolloutStorage(object):
                 old_action_log_probs_batch.append(
                     self.action_log_probs[:, ind])
                 adv_targ.append(advantages[:, ind])
+                interpolate_masks_batch.append(self.interpolate_masks[:, ind])
 
             T, N = self.num_steps, num_envs_per_batch
             # These are all tensors of size (T, N, -1)
@@ -273,6 +369,7 @@ class RolloutStorage(object):
             old_action_log_probs_batch = torch.stack(
                 old_action_log_probs_batch, 1)
             adv_targ = torch.stack(adv_targ, 1)
+            interpolate_masks_batch = torch.stack(interpolate_masks_batch, 1)
 
             # States is just a (N, -1) tensor
             recurrent_hidden_states_batch = torch.stack(
@@ -288,5 +385,5 @@ class RolloutStorage(object):
                     old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
 
-            yield obs_batch, recurrent_hidden_states_batch, actions_batch, \
-                value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+            yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, \
+                  old_action_log_probs_batch, adv_targ, interpolate_masks_batch

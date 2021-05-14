@@ -1,0 +1,30 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-prediction-50-no-stop/2021-05-07T11:56:32.616339#072e",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-prediction-50-no-stop/2021-05-07T11:56:32.616339#072e",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-prediction-50-no-stop/2021-05-07T11:56:32.616339#072e",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/first-reward-prediction-50-no-stop/2021-05-07T11:56:32.616339#072e",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ]
+}

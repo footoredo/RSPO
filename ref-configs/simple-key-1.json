@@ -1,0 +1,10 @@
+{
+    "agent_0": [
+        {
+            "load_dir": "./sync-results/simple-key/default/0/2021-04-28T15:38:37.976866#4a9c",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "agent_0"
+        }
+    ]
+}
