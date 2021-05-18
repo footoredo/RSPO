@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import gym
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from a2c_ppo_acktr.multi_agent.utils import jointplot, mkdir2
 
@@ -22,15 +23,30 @@ class RolloutStorage(object):
         self.num_value_refs = num_value_refs
         self.value_preds = torch.zeros(num_steps + 1, num_processes, 1 + num_value_refs * 2)
         self.returns = torch.zeros(num_steps + 1, num_processes, 1 + num_refs * 3)
-        self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
+
         self.dice_deps = torch.zeros(num_steps, num_processes, 1)
         self.interpolate_masks = torch.zeros(num_steps, num_processes, num_refs * 2 + 1)
         self.action_loss_coef = 1.0
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
-        else:
+            num_action_heads = 1
+        elif isinstance(action_space, gym.spaces.Box):
             action_shape = action_space.shape[0]
+            num_action_heads = 1
+        elif isinstance(action_space, gym.spaces.Tuple):
+            action_shape = 0
+            for space in action_space:
+                if isinstance(space, gym.spaces.Box):
+                    action_shape += space.shape[0]
+                elif isinstance(space, gym.spaces.Discrete):
+                    action_shape += 1
+                else:
+                    raise NotImplementedError
+            num_action_heads = len(action_space)
+        else:
+            raise NotImplementedError
         self.actions = torch.zeros(num_steps, num_processes, action_shape)
+        self.action_log_probs = torch.zeros(num_steps, num_processes, num_action_heads)
         if action_space.__class__.__name__ == 'Discrete':
             self.actions = self.actions.long()
         self.masks = torch.ones(num_steps + 1, num_processes, 1)

@@ -48,8 +48,8 @@ class FixedNormal(torch.distributions.Normal):
         log_probs = super().log_prob(actions) + torch.log(self.scale) + math.log(math.sqrt(2 * math.pi))
         return log_probs.sum(-1, keepdim=True)
 
-    def entrop(self):
-        return super.entropy().sum(-1)
+    def entropy(self):
+        return super().entropy().sum(-1)
 
     def mode(self):
         return self.mean
@@ -68,6 +68,54 @@ class FixedBernoulli(torch.distributions.Bernoulli):
 
     def mode(self):
         return torch.gt(self.probs, 0.5).float()
+
+
+class FixedNormalCategoricalMixture:
+    # NOTE: this implementation is just for Agar! it is not general!
+    def __init__(self, logits, mean, std, real_action_dims):
+        self.real_action_dims = real_action_dims
+        self.c = FixedCategorical(logits=logits)
+        self.n = FixedNormal(mean, std)
+    
+    def sample(self):
+        return torch.cat([self.n.sample(), self.c.sample()], -1)
+
+    def log_probs(self, actions):
+        continuous_a, discrete_a = actions.split(self.real_action_dims, -1)
+        return torch.cat([self.n.log_probs(continuous_a), self.c.log_probs(discrete_a)], -1)
+
+    def likelihoods(self, actions):
+        continuous_a, discrete_a = actions.split(self.real_action_dims, -1)
+        return torch.cat([self.n.likelihoods(continuous_a), self.c.likelihoods(discrete_a)], -1)
+
+    def entropy(self):
+        return self.c.entropy() + self.n.entropy()
+
+    def mode(self):
+        return torch.cat((self.n.mean, self.c.mode()), -1)
+
+
+class NormalCategorical(nn.Module):
+    def __init__(self, num_inputs, num_outputs, real_action_dims, is_ref=False):
+        super().__init__()
+
+        if is_ref:
+            init_ = lambda m: m
+        else:
+            init_ = lambda m: init(
+                m,
+                nn.init.orthogonal_,
+                lambda x: nn.init.constant_(x, 0),
+                gain=0.01)
+        
+        self.num_outputs = num_outputs
+        self.real_action_dims = real_action_dims
+        self.c_linear = init_(nn.Linear(num_inputs, num_outputs[1]))  # 2
+        self.fc_mean_std = init_(nn.Linear(num_inputs, num_outputs[0] * 2))  # 4
+    
+    def forward(self, x):
+        mean, logstd = self.fc_mean_std(x).split(self.num_outputs[0], -1)
+        return FixedNormalCategoricalMixture(logits=self.c_linear(x), mean=mean, std=logstd.exp(), real_action_dims=self.real_action_dims)
 
 
 class Categorical(nn.Module):
@@ -93,24 +141,22 @@ class Categorical(nn.Module):
 
 
 class DiagGaussian(nn.Module):
-    def __init__(self, num_inputs, num_outputs):
+    def __init__(self, num_inputs, num_outputs, is_ref):
         super(DiagGaussian, self).__init__()
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0))
+        if is_ref:
+            init_ = lambda m: m
+        else:
+            init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.constant_(x, 0))
 
-        self.fc_mean = init_(nn.Linear(num_inputs, num_outputs))
-        self.logstd = AddBias(torch.zeros(num_outputs))
+        self.num_outputs = num_outputs
+        # in original implementation, std of gaussian is fixed
+        # however, logstd of gaussian can be a part of outputs of the linear layer
+        self.fc_mean_std = init_(nn.Linear(num_inputs, num_outputs * 2))
 
     def forward(self, x):
-        action_mean = self.fc_mean(x)
+        action_mean, action_logstd = self.fc_mean_std(x).split(self.num_outputs, -1)
 
-        #  An ugly hack for my KFAC implementation.
-        zeros = torch.zeros(action_mean.size())
-        if x.is_cuda:
-            zeros = zeros.cuda()
-
-        action_logstd = self.logstd(zeros)
         # print(action_mean)
         return FixedNormal(action_mean, action_logstd.exp())
 

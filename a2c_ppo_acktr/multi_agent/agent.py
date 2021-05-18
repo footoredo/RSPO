@@ -397,6 +397,7 @@ class Agent(mp.Process):
                         # action = mask * random_action + (1 - mask) * action
                         # self.log("step {} - act {}".format(it * self.num_steps + step, action))
                     action = action.data
+                    print(action.shape)
                     for i_env in range(self.num_envs):
                         self.put_act(i_env, action[i_env].numpy())
                     # self.log("release act locks")

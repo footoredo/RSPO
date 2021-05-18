@@ -164,7 +164,7 @@ def _run(args, logger):
     for agent in env.agents:
         act_sizes.append(get_action_size(env.action_spaces[agent]))
         act_recover_fns.append(get_action_recover_fn(env.action_spaces[agent]))
-
+    print(act_sizes)
     sum_act_sizes = sum(act_sizes)
 
     obs_shm = shared_memory.SharedMemory(create=True, size=obs_buffer_size)

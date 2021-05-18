@@ -3,6 +3,7 @@ import torch
 import os
 import pathlib
 import json
+import gym
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -71,6 +72,11 @@ def get_action_size(action_space, in_buffer=False):
         return 1 if in_buffer else action_space.n
     elif action_space.__class__.__name__ == "Box":
         return action_space.shape[0]
+    elif isinstance(action_space, gym.spaces.Tuple):
+        size = 0
+        for subspace in action_space:
+            size += get_action_size(subspace, in_buffer)
+        return size
     else:
         raise NotImplementedError
 
@@ -80,6 +86,12 @@ def get_action_recover_fn(action_space):
         return lambda a: int(a[0])
     elif action_space.__class__.__name__ == "Box":
         return lambda a: a
+    elif isinstance(action_space, gym.spaces.Tuple):
+        # for simplicity, here only implements recover_fn for Agar!
+        def recover_fn(a):
+            assert a.shape[-1] == 3
+            return np.concatenate((a[:2], int(a[-1])), axis=-1)
+        return recover_fn
     else:
         raise NotImplementedError
 

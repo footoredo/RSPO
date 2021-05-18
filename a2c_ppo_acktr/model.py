@@ -3,10 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian, FixedNormal
+from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian, FixedNormal, NormalCategorical
 from a2c_ppo_acktr.utils import init
 from copy import deepcopy
 import math
+import gym
 
 
 class Flatten(nn.Module):
@@ -29,22 +30,39 @@ class Policy(nn.Module):
 
         # print("21312312")
 
-        if action_space.__class__.__name__ == "Discrete":
-            num_outputs = action_space.n
-
-            def action_embedding(actions):
-                return torch.nn.functional.one_hot(actions, num_classes=num_outputs).squeeze(-2)
-        elif action_space.__class__.__name__ == "Box":
-            num_outputs = action_space.shape[0]
-
-            def action_embedding(actions):
-                return actions
-        elif action_space.__class__.__name__ == "MultiBinary":
-            num_outputs = action_space.shape[0]
-
-            raise NotImplementedError
-        else:
-            raise NotImplementedError
+        assert isinstance(action_space, gym.spaces.Tuple), 'this branch is for agar only, thus we only care about action space of agar'
+        real_action_dims = []
+        num_outputs = []
+        is_continuous = []
+        for space in action_space:
+            if isinstance(space, gym.spaces.Box):
+                num_outputs.append(space.shape[0])
+                is_continuous.append(True)
+                real_action_dims.append(space.shape[0])
+            elif isinstance(space, gym.spaces.Discrete):
+                num_outputs.append(space.n)
+                is_continuous.append(False)
+                real_action_dims.append(1)
+            else:
+                raise NotImplementedError
+        
+        assert real_action_dims == [2, 1], real_action_dims
+        assert num_outputs == [2, 2], num_outputs
+        assert is_continuous == [True, False], is_continuous
+        
+        def action_embedding(actions, real_action_dims=real_action_dims, is_continuous=is_continuous, num_outputs=num_outputs):
+            assert actions.shape[-1] == sum(real_action_dims)
+            assert isinstance(actions, torch.tensor)
+            splitted_actions = actions.split(real_action_dims, -1)
+            embedded_actions = []
+            for a, is_con, n_o in zip(splitted_actions, is_continuous, num_outputs):
+                if is_con:
+                    embedded_actions.append(a)
+                else:
+                    embedded_actions.append(torch.nn.functional.one_hot(a, num_classes=n_o).squeeze(-2))
+            embedded_actions = torch.cat(embedded_actions, -1)
+            assert embedded_actions.shape[-1] == sum(num_outputs)
+            return embedded_actions
 
         base_kwargs["num_actions"] = num_outputs
         base_kwargs["action_embedding"] = action_embedding
@@ -53,12 +71,7 @@ class Policy(nn.Module):
         self.base = base(obs_shape[0], **base_kwargs)
         # print('finish')
 
-        if action_space.__class__.__name__ == "Discrete":
-            self.dist = Categorical(self.base.output_size, num_outputs, is_ref=base_kwargs["is_ref"])
-        elif action_space.__class__.__name__ == "Box":
-            self.dist = DiagGaussian(self.base.output_size, num_outputs)
-        elif action_space.__class__.__name__ == "MultiBinary":
-            self.dist = Bernoulli(self.base.output_size, num_outputs)
+        self.dist = NormalCategorical(self.base.output_size, num_outputs, real_action_dims, is_ref=base_kwargs["is_ref"])
 
         self.obs_rms = None
 
@@ -471,9 +484,10 @@ class MLPBase(NNBase):
         self.predict_reward = predict_reward
         if predict_reward:
             self.num_actions = num_actions
+            input_action_dim = sum(num_actions) if isinstance(num_actions, list) else num_actions
             self.action_embedding = action_embedding
             self.predictor = nn.Sequential(
-                nn.Linear(num_inputs + num_actions, hidden_size), activation_fn(),
+                nn.Linear(num_inputs + input_action_dim, hidden_size), activation_fn(),
                 nn.Linear(hidden_size, 1)
             )
             # self.random_net = nn.Sequential(
