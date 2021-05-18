@@ -41,7 +41,7 @@ def _run(args, logger):
     if args.use_wandb:
         wandb_config = {
             "project": args.wandb_project,
-            "entity": CONFIDENTIAL["wandb"]["username"],
+            "entity": 'garrett4wade',
             "group": args.wandb_group,
             "name": run_name,
             "config": args

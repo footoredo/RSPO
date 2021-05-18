@@ -1,0 +1,27 @@
+{
+    "os": "Linux-3.10.0-957.el7.x86_64-x86_64-with-glibc2.10",
+    "python": "3.8.5",
+    "heartbeatAt": "2021-05-18T03:18:57.232652",
+    "startedAt": "2021-05-18T03:18:45.534532",
+    "docker": null,
+    "gpu": "GeForce RTX 3090",
+    "gpu_count": 1,
+    "cpu_count": 128,
+    "cuda": null,
+    "args": [
+        "--config",
+        "configs/simple-key-1.json"
+    ],
+    "state": "running",
+    "program": "ma_main.py",
+    "codePath": "ma_main.py",
+    "git": {
+        "remote": "git@github.com:footoredo/pytorch-a2c-ppo-acktr-gail.git",
+        "commit": "9d46303d2db09468dc091c064253295625194016"
+    },
+    "email": null,
+    "root": "/workspace/home_workspace/pytorch-a2c-ppo-acktr-gail",
+    "host": "00a9d38c21f8",
+    "username": "root",
+    "executable": "/opt/conda/bin/python"
+}

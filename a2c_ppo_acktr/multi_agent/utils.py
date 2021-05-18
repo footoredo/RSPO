@@ -11,7 +11,8 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans, SpectralClustering
 
 
-CONFIDENTIAL = json.load(open("./confidential.json"))
+# CONFIDENTIAL = json.load(open("./confidential.json"))
+CONFIDENTIAL = None
 SSH = None
 
 
@@ -193,6 +194,9 @@ def make_env(env_name, steps, env_config=None):
     elif env_name == 'half-cheetah':
         from pettingzoo.mujoco import half_cheetah_v3
         return half_cheetah_v3.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'agar':
+        from pettingzoo.agar.Agar_Env import AgarEnv
+        return AgarEnv(max_frames=steps, **env_config)
     else:
         raise NotImplementedError(env_name)
 
