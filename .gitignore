@@ -107,4 +107,4 @@ trained_models/
 /tmp/
 /confidential.json
 
-./wandb*
+wandb
