@@ -1,5 +1,6 @@
 {
     "num_agents": 2,
     "action_repeat": 4,
-    "num_bots": 2
+    "num_bots": 2,
+    "use_curriculum_learning": true
 }

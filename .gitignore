@@ -108,3 +108,4 @@ trained_models/
 /confidential.json
 
 wandb
+core.*

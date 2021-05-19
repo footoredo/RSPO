@@ -22,16 +22,14 @@
     "reward_normalization": true,
     "use_attention": false,
     "use_linear": false,
-    "seed": 1240,
-    "cuda_deterministic": false,
-    "num_processes": 2,
+    "num_processes": 64,
     "num_agents": 2,
     "num_steps": 256,
     "episode_steps": 128,
     "test_episode_steps": 128,
     "ppo_epoch": 10,
     "dice_epoch": 4,
-    "num_mini_batch": 32,
+    "num_mini_batch": 4,
     "fine_tune_start_iter": null,
     "no_exploration_rewards": true,
     "reward_prediction_multiplier": 1.0,
@@ -69,10 +67,12 @@
     "dice_task": null,
     "test_branching_name": "test-branching",
     "task": null,
-    "no_cuda": true,
     "use_proper_time_limits": true,
     "recurrent_policy": false,
     "use_linear_lr_decay": true,
-    "cuda": false
+    "seed": 1240,
+    "cuda": false,
+    "cuda_deterministic": false,
+    "no_cuda": true
   }
   
