@@ -886,19 +886,13 @@ class Agent(mp.Process):
                 #                 action = 1
                 #     else:
                 #         action = 4
-                strategy = actor_critic.get_strategy(ts([obs]), recurrent_hidden_states, ts([[0.0] if done else [1.0]]))
+                _, action, _, _ = actor_critic.act(ts([obs]), recurrent_hidden_states, ts([[0.0] if done else [1.0]]), deterministic=True)
                 # print(strategy)
-                if isinstance(strategy, FixedCategorical):
-                    strategy = FixedCategorical(logits=strategy.logits[0].detach())
-                elif isinstance(strategy, FixedNormal):
-                    strategy = FixedNormal(loc=strategy.loc[0].detach(), scale=strategy.scale[0].detach())
-                else:
-                    raise NotImplementedError
                 # c = 0.0
                 # strategy = (1 - c) * strategy + c * np.ones_like(strategy) / strategy.shape[0]
                 # action = np_random.choice(strategy.shape[0], p=strategy)
                 # action = strategy.sample().numpy()
-                action = strategy.mode().numpy()
+                action = action.numpy()
                 # print(strategy.loc, strategy.scale)
                 # print(action, torch.log(actor_critic.get_probs(ts([obs]), recurrent_hidden_states, ts([[1.0]]), ts([action + 0.2]))))
                 # action = np.argmax(strategy)
