@@ -51,17 +51,18 @@ class Policy(nn.Module):
         assert is_continuous == [True, False], is_continuous
         
         def action_embedding(actions, real_action_dims=real_action_dims, is_continuous=is_continuous, num_outputs=num_outputs):
-            assert actions.shape[-1] == sum(real_action_dims)
-            assert isinstance(actions, torch.tensor)
             splitted_actions = actions.split(real_action_dims, -1)
             embedded_actions = []
             for a, is_con, n_o in zip(splitted_actions, is_continuous, num_outputs):
                 if is_con:
                     embedded_actions.append(a)
                 else:
-                    embedded_actions.append(torch.nn.functional.one_hot(a, num_classes=n_o).squeeze(-2))
+                    embedded_actions.append(torch.nn.functional.one_hot(a.long(), num_classes=n_o).squeeze(-2).float())
             embedded_actions = torch.cat(embedded_actions, -1)
-            assert embedded_actions.shape[-1] == sum(num_outputs)
+            # NOTE: following lines are for debug only
+            # assert actions.shape[-1] == sum(real_action_dims)
+            # assert isinstance(actions, torch.Tensor)
+            # assert embedded_actions.shape[-1] == sum(num_outputs)
             return embedded_actions
 
         base_kwargs["num_actions"] = num_outputs
@@ -116,7 +117,6 @@ class Policy(nn.Module):
             action = dist.sample()
 
         action_log_probs = dist.log_probs(action)
-        dist_entropy = dist.entropy().mean()
 
         return value, action, action_log_probs, rnn_hxs
 

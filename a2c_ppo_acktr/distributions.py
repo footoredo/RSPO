@@ -111,11 +111,14 @@ class NormalCategorical(nn.Module):
         self.num_outputs = num_outputs
         self.real_action_dims = real_action_dims
         self.c_linear = init_(nn.Linear(num_inputs, num_outputs[1]))  # 2
-        self.fc_mean_std = init_(nn.Linear(num_inputs, num_outputs[0] * 2))  # 4
+        self.fc_mean = init_(nn.Linear(num_inputs, num_outputs[0]))  # 4
+        # TODO: now we simply fix standard deviation
+        self.logstd = nn.Parameter(torch.zeros(num_outputs[0]), requires_grad=True)
     
     def forward(self, x):
-        mean, logstd = self.fc_mean_std(x).split(self.num_outputs[0], -1)
-        return FixedNormalCategoricalMixture(logits=self.c_linear(x), mean=mean, std=logstd.exp(), real_action_dims=self.real_action_dims)
+        mean = self.fc_mean(x)
+        logits = self.c_linear(x)
+        return FixedNormalCategoricalMixture(logits=logits, mean=mean, std=self.logstd.exp(), real_action_dims=self.real_action_dims)
 
 
 class Categorical(nn.Module):

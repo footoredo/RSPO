@@ -69,7 +69,7 @@ def show_play_statistics(env_name, statistics, episode_steps=None):
 
 def get_action_size(action_space, in_buffer=False):
     if action_space.__class__.__name__ == "Discrete":
-        return 1 if in_buffer else action_space.n
+        return 1 if not in_buffer else action_space.n
     elif action_space.__class__.__name__ == "Box":
         return action_space.shape[0]
     elif isinstance(action_space, gym.spaces.Tuple):
@@ -87,11 +87,7 @@ def get_action_recover_fn(action_space):
     elif action_space.__class__.__name__ == "Box":
         return lambda a: a
     elif isinstance(action_space, gym.spaces.Tuple):
-        # for simplicity, here only implements recover_fn for Agar!
-        def recover_fn(a):
-            assert a.shape[-1] == 3
-            return np.concatenate((a[:2], int(a[-1])), axis=-1)
-        return recover_fn
+        return lambda a: a
     else:
         raise NotImplementedError
 
@@ -604,7 +600,7 @@ class RunningStat(object):
 
     def push(self, x):
         x = np.asarray(x)
-        assert x.shape == self._M.shape
+        assert x.shape == self._M.shape, (x.shape, self._M.shape)
         self._n += 1
         if self._n == 1:
             self._M[...] = x
