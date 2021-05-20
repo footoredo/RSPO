@@ -70,7 +70,7 @@
     "use_proper_time_limits": true,
     "recurrent_policy": false,
     "use_linear_lr_decay": true,
-    "seed": 549872,
+    "seed": 5,
     "cuda": false,
     "cuda_deterministic": false,
     "no_cuda": true
