@@ -62,7 +62,7 @@
     "gif": false,
     "load": false,
     "load_dir": "./results/stag-hunt-gw/2020-12-09T17:22:49.027992",
-    "ref_config": "./ref-configs/agar-1-test-3534.json",
+    "ref_config": "./ref-configs/agar-1-3534.json",
     "load_step": null,
     "ref_load_dir": null,
     "ref_load_step": null,
@@ -79,7 +79,7 @@
     "use_proper_time_limits": true,
     "recurrent_policy": false,
     "use_linear_lr_decay": true,
-    "seed": 1240,
+    "seed": 18995,
     "cuda": false,
     "cuda_deterministic": false,
     "no_cuda": true
