@@ -54,7 +54,7 @@
   "env_config": "./env-configs/agar-full-curriculum.json",
   "log_dir": "/tmp/gym/",
   "save_dir": "./sync-results/agar/run-1-full",
-  "use_wandb": false,
+  "use_wandb": true,
   "wandb_project": "diversity-agar",
   "wandb_group": "agar-1-full-curriculum",
   "config": null,

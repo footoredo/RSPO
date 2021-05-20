@@ -1,0 +1,619 @@
+nohup: ignoring input
+[INFO/Agent-1] child process calling self.run()
+[INFO/Agent-2] child process calling self.run()
+[INFO/Environment-9] child process calling self.run()
+[INFO/Environment-9] Environment-6: reseed with seed 601024096
+[INFO/Environment-4] child process calling self.run()
+[INFO/Environment-4] Environment-1: reseed with seed 3224557748
+[INFO/Environment-5] child process calling self.run()
+[INFO/Environment-5] Environment-2: reseed with seed 3510122943
+[INFO/Environment-3] child process calling self.run()
+[INFO/Environment-3] Environment-0: reseed with seed 2438272959
+[INFO/Environment-8] child process calling self.run()
+[INFO/Environment-8] Environment-5: reseed with seed 1431383784
+[INFO/Environment-7] child process calling self.run()
+[INFO/Environment-6] child process calling self.run()
+[INFO/Environment-6] Environment-3: reseed with seed 3349715369
+[INFO/Environment-7] Environment-4: reseed with seed 4174602506
+[INFO/Environment-10] child process calling self.run()
+[INFO/Environment-10] Environment-7: reseed with seed 4093392476
+[INFO/Environment-11] child process calling self.run()
+[INFO/Environment-11] Environment-8: reseed with seed 217865625
+[INFO/Environment-12] child process calling self.run()
+[INFO/Environment-12] Environment-9: reseed with seed 2815026249
+[INFO/Environment-13] child process calling self.run()
+[INFO/Environment-13] Environment-10: reseed with seed 2777395031
+[INFO/Environment-14] child process calling self.run()
+[INFO/Environment-14] Environment-11: reseed with seed 3929027218
+[INFO/Environment-15] child process calling self.run()
+[INFO/Environment-15] Environment-12: reseed with seed 2843533555
+[INFO/Environment-16] child process calling self.run()
+[INFO/Environment-16] Environment-13: reseed with seed 637075013
+[INFO/Environment-17] child process calling self.run()
+[INFO/Environment-17] Environment-14: reseed with seed 615614766
+[INFO/Environment-18] child process calling self.run()
+[INFO/Environment-18] Environment-15: reseed with seed 3734190686
+[INFO/Environment-19] child process calling self.run()
+[INFO/Environment-19] Environment-16: reseed with seed 1512179075
+[INFO/Environment-20] child process calling self.run()
+[INFO/Environment-20] Environment-17: reseed with seed 3997724788
+[INFO/Environment-21] child process calling self.run()
+[INFO/Environment-21] Environment-18: reseed with seed 3015665364
+[INFO/Environment-22] child process calling self.run()
+[INFO/Environment-22] Environment-19: reseed with seed 1593526074
+[INFO/Environment-23] child process calling self.run()
+[INFO/Environment-23] Environment-20: reseed with seed 351892115
+[INFO/Environment-24] child process calling self.run()
+[INFO/Environment-24] Environment-21: reseed with seed 2976970974
+[INFO/Environment-25] child process calling self.run()
+[INFO/Environment-25] Environment-22: reseed with seed 1457849105
+[INFO/Environment-26] child process calling self.run()
+[INFO/Environment-26] Environment-23: reseed with seed 941142214
+[INFO/Environment-27] child process calling self.run()
+[INFO/Environment-27] Environment-24: reseed with seed 2048544427
+[INFO/Environment-28] child process calling self.run()
+[INFO/Environment-28] Environment-25: reseed with seed 477464484
+[INFO/Environment-29] child process calling self.run()
+[INFO/Environment-29] Environment-26: reseed with seed 3517644351
+[INFO/Environment-30] child process calling self.run()
+[INFO/Environment-30] Environment-27: reseed with seed 212378719
+[INFO/Environment-31] child process calling self.run()
+[INFO/Environment-31] Environment-28: reseed with seed 4109393840
+[INFO/Environment-32] child process calling self.run()
+[INFO/Environment-32] Environment-29: reseed with seed 2531474961
+[INFO/Environment-33] child process calling self.run()
+[INFO/Environment-33] Environment-30: reseed with seed 81159921
+[INFO/Environment-34] child process calling self.run()
+[INFO/Environment-34] Environment-31: reseed with seed 4062033044
+[INFO/Environment-35] child process calling self.run()
+[INFO/Environment-35] Environment-32: reseed with seed 3667165023
+[INFO/Environment-36] child process calling self.run()
+[INFO/Environment-36] Environment-33: reseed with seed 239985128
+[INFO/Environment-37] child process calling self.run()
+[INFO/Environment-37] Environment-34: reseed with seed 2734944818
+[INFO/Environment-38] child process calling self.run()
+[INFO/Environment-38] Environment-35: reseed with seed 3865361710
+[INFO/Environment-39] child process calling self.run()
+[INFO/Environment-40] child process calling self.run()
+[INFO/Environment-39] Environment-36: reseed with seed 4149085802
+[INFO/Environment-40] Environment-37: reseed with seed 2465856311
+[INFO/Environment-41] child process calling self.run()
+[INFO/Environment-41] Environment-38: reseed with seed 366844168
+[INFO/Environment-43] child process calling self.run()
+[INFO/Environment-43] Environment-40: reseed with seed 3881145451
+[INFO/Environment-42] child process calling self.run()
+[INFO/Environment-42] Environment-39: reseed with seed 2435009183
+[INFO/Environment-44] child process calling self.run()
+[INFO/Environment-44] Environment-41: reseed with seed 3510623901
+[INFO/Environment-45] child process calling self.run()
+[INFO/Environment-45] Environment-42: reseed with seed 2894617111
+[INFO/Environment-46] child process calling self.run()
+[INFO/Environment-46] Environment-43: reseed with seed 3192345065
+[INFO/Environment-47] child process calling self.run()
+[INFO/Environment-47] Environment-44: reseed with seed 3846957937
+[INFO/Environment-48] child process calling self.run()
+[INFO/Environment-48] Environment-45: reseed with seed 2199443813
+[INFO/Environment-49] child process calling self.run()
+[INFO/Environment-49] Environment-46: reseed with seed 2223560058
+[INFO/Environment-50] child process calling self.run()
+[INFO/Environment-50] Environment-47: reseed with seed 2642966041
+[INFO/Environment-51] child process calling self.run()
+[INFO/Environment-51] Environment-48: reseed with seed 3295544344
+[INFO/Environment-52] child process calling self.run()
+[INFO/Environment-52] Environment-49: reseed with seed 2195333730
+[INFO/Environment-53] child process calling self.run()
+[INFO/Environment-53] Environment-50: reseed with seed 1555343576
+[INFO/Environment-54] child process calling self.run()
+[INFO/Environment-54] Environment-51: reseed with seed 3290577403
+[INFO/Environment-56] child process calling self.run()
+[INFO/Environment-56] Environment-53: reseed with seed 3199709695
+[INFO/Environment-55] child process calling self.run()
+[INFO/Environment-55] Environment-52: reseed with seed 154296885
+[INFO/Environment-57] child process calling self.run()
+[INFO/Environment-57] Environment-54: reseed with seed 972285957
+[INFO/Environment-58] child process calling self.run()
+[INFO/Environment-58] Environment-55: reseed with seed 3778508478
+[INFO/Environment-59] child process calling self.run()
+[INFO/Environment-59] Environment-56: reseed with seed 2389273101
+[INFO/Environment-60] child process calling self.run()
+[INFO/Environment-60] Environment-57: reseed with seed 1598172727
+[INFO/Environment-61] child process calling self.run()
+[INFO/Environment-61] Environment-58: reseed with seed 3943763216
+[INFO/Environment-62] child process calling self.run()
+[INFO/Environment-62] Environment-59: reseed with seed 2570616674
+[INFO/Environment-63] child process calling self.run()
+[INFO/Environment-63] Environment-60: reseed with seed 1960438087
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Environment-64] child process calling self.run()
+[INFO/Environment-64] Environment-61: reseed with seed 3247275523
+[INFO/Environment-65] child process calling self.run()
+[INFO/Environment-65] Environment-62: reseed with seed 3350885991
+[INFO/Environment-66] child process calling self.run()
+[INFO/Environment-66] Environment-63: reseed with seed 2141053237
+[INFO/Agent-2] agent_1: ref time 0.014662027359008789, copy time 0.1927037239074707
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 55. Efficiency: 42.97%. Efficiency per ref: [0.4296875]
+[INFO/Agent-2] agent_1: Sampling time: 19.99978470802307
+[INFO/Agent-1] agent_0: ref time 0.014839410781860352, copy time 0.20812749862670898
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 104. Efficiency: 81.25%. Efficiency per ref: [0.8125]
+[INFO/Agent-1] agent_0: Sampling time: 20.026344299316406
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 2.8211429119110107
+[INFO/Agent-2] agent_1: Update #0, reward 0.7547157034277914, likelihood [948.57110305], value_loss 942291131.2, action_loss 0.04902113303542137, dist_entropy 3.5317027270793915, grad_norm 3982.8606230097707, reward_prediction_loss 0.01907130132894963
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 2.970731019973755
+[INFO/Agent-1] agent_0: Update #0, reward 0.7547157034277914, likelihood [1608.69436389], value_loss 941175142.4, action_loss 0.0009894257847918198, dist_entropy 3.5307123243808745, grad_norm 3857.6302337174393, reward_prediction_loss 0.01834580710856244
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.019255638122558594, copy time 0.21062159538269043
+[INFO/Agent-1] agent_0: ref time 0.023574352264404297, copy time 0.20479583740234375
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 54. Efficiency: 42.19%. Efficiency per ref: [0.421875]
+[INFO/Agent-2] agent_1: Sampling time: 19.321409463882446
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 103. Efficiency: 80.47%. Efficiency per ref: [0.8046875]
+[INFO/Agent-1] agent_0: Sampling time: 19.14510464668274
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 2.4307234287261963
+[INFO/Agent-1] agent_0: Update #1, reward 0.8047288060188295, likelihood [1626.95239008], value_loss 941088361.6, action_loss 0.04699310809373856, dist_entropy 3.5281364917755127, grad_norm 6926.6890427958615, reward_prediction_loss 0.01823985078372061
+[INFO/Agent-1] agent_0: mean/median reward 0.8/0.8, min/max reward 0.8/0.8
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 2.4445807933807373
+[INFO/Agent-2] agent_1: Update #1, reward 0.8047288060188295, likelihood [1014.93975749], value_loss 939748785.6, action_loss 0.009922473292681389, dist_entropy 3.5316839098930357, grad_norm 6695.907619350245, reward_prediction_loss 0.015636623301543296
+[INFO/Agent-2] agent_1: mean/median reward 0.8/0.8, min/max reward 0.8/0.8
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.02034759521484375, copy time 0.18869304656982422
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 103. Efficiency: 80.47%. Efficiency per ref: [0.8046875]
+[INFO/Agent-1] agent_0: Sampling time: 22.354904890060425
+[INFO/Agent-2] agent_1: ref time 0.013941526412963867, copy time 0.18677163124084473
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 60. Efficiency: 46.88%. Efficiency per ref: [0.46875]
+[INFO/Agent-2] agent_1: Sampling time: 22.351866960525513
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 2.610659599304199
+[INFO/Agent-1] agent_0: update time 2.6141107082366943
+[INFO/Agent-2] agent_1: Update #2, reward 0.8960066381841898, likelihood [980.02356503], value_loss 932241156.8, action_loss 0.019075090781552718, dist_entropy 3.520285278558731, grad_norm 6335.413947578006, reward_prediction_loss 0.022260883718263357
+[INFO/Agent-1] agent_0: Update #2, reward 0.8960066381841898, likelihood [1613.3428861], value_loss 934185064.0, action_loss 0.03573355465196073, dist_entropy 3.5419866740703583, grad_norm 6486.711431793125, reward_prediction_loss 0.021827849210239947
+[INFO/Agent-2] agent_1: mean/median reward 0.8/0.8, min/max reward 0.8/0.9
+[INFO/Agent-1] agent_0: mean/median reward 0.8/0.8, min/max reward 0.8/0.9
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.011802196502685547, copy time 0.17084980010986328
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 51. Efficiency: 39.84%. Efficiency per ref: [0.3984375]
+[INFO/Agent-2] agent_1: Sampling time: 19.19176721572876
+[INFO/Agent-1] agent_0: ref time 0.01595163345336914, copy time 0.19817614555358887
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 108. Efficiency: 84.38%. Efficiency per ref: [0.84375]
+[INFO/Agent-1] agent_0: Sampling time: 19.204901933670044
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 2.565723180770874
+[INFO/Agent-2] agent_1: Update #3, reward 0.9785912074148655, likelihood [933.78259749], value_loss 936585316.8, action_loss 0.031004322657827287, dist_entropy 3.5130706071853637, grad_norm 6485.588427162466, reward_prediction_loss 0.017518564220517875
+[INFO/Agent-2] agent_1: mean/median reward 0.9/0.9, min/max reward 0.8/1.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 2.5685524940490723
+[INFO/Agent-1] agent_0: Update #3, reward 0.9785912074148655, likelihood [1595.21443197], value_loss 941242388.8, action_loss -0.007733968744287267, dist_entropy 3.531369709968567, grad_norm 6657.637084470669, reward_prediction_loss 0.016819006588775665
+[INFO/Agent-1] agent_0: mean/median reward 0.9/0.9, min/max reward 0.8/1.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.0179595947265625, copy time 0.20840883255004883
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 50. Efficiency: 39.06%. Efficiency per ref: [0.390625]
+[INFO/Agent-2] agent_1: Sampling time: 26.220030546188354
+[INFO/Agent-1] agent_0: ref time 0.02532052993774414, copy time 0.1978435516357422
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 108. Efficiency: 84.38%. Efficiency per ref: [0.84375]
+[INFO/Agent-1] agent_0: Sampling time: 26.221208333969116
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.477273225784302
+[INFO/Agent-1] agent_0: Update #4, reward 1.271502461284399, likelihood [1549.98582438], value_loss 941380136.0, action_loss 0.03532734668115154, dist_entropy 3.5239101588726043, grad_norm 6316.399644519158, reward_prediction_loss 0.01830925145186484
+[INFO/Agent-1] agent_0: mean/median reward 0.9/0.9, min/max reward 0.8/1.3
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 5.606507301330566
+[INFO/Agent-2] agent_1: Update #4, reward 1.271502461284399, likelihood [960.64703031], value_loss 939546257.6, action_loss 0.04431603448465467, dist_entropy 3.500001013278961, grad_norm 6305.092901838811, reward_prediction_loss 0.019524867320433258
+[INFO/Agent-2] agent_1: mean/median reward 0.9/0.9, min/max reward 0.8/1.3
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.01802229881286621, copy time 0.2442612648010254
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 61. Efficiency: 47.66%. Efficiency per ref: [0.4765625]
+[INFO/Agent-2] agent_1: Sampling time: 30.017137050628662
+[INFO/Agent-1] agent_0: ref time 0.023280620574951172, copy time 0.27485132217407227
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 108. Efficiency: 84.38%. Efficiency per ref: [0.84375]
+[INFO/Agent-1] agent_0: Sampling time: 30.157679796218872
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.434589385986328
+[INFO/Agent-1] agent_0: Update #5, reward 0.9563590735197067, likelihood [1601.81143215], value_loss 935046448.0, action_loss 0.013564816146390513, dist_entropy 3.4934798061847685, grad_norm 6880.031389686726, reward_prediction_loss 0.012500982673373073
+[INFO/Agent-1] agent_0: mean/median reward 0.9/0.9, min/max reward 0.8/1.3
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 6.163583517074585
+[INFO/Agent-2] agent_1: Update #5, reward 0.9563590735197067, likelihood [1032.88134298], value_loss 943449187.2, action_loss 0.0293252813979052, dist_entropy 3.489737033843994, grad_norm 6446.197806698743, reward_prediction_loss 0.013117733795661479
+[INFO/Agent-2] agent_1: mean/median reward 0.9/0.9, min/max reward 0.8/1.3
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.03150677680969238, copy time 0.21285319328308105
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 106. Efficiency: 82.81%. Efficiency per ref: [0.828125]
+[INFO/Agent-1] agent_0: Sampling time: 31.430076360702515
+[INFO/Agent-2] agent_1: ref time 0.0180814266204834, copy time 0.2368180751800537
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 40. Efficiency: 31.25%. Efficiency per ref: [0.3125]
+[INFO/Agent-2] agent_1: Sampling time: 30.764639616012573
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.083631992340088
+[INFO/Agent-1] agent_0: Update #6, reward 1.409391574561596, likelihood [1494.62676388], value_loss 941649800.0, action_loss 0.038989940844476226, dist_entropy 3.4615919411182405, grad_norm 7143.19444859107, reward_prediction_loss 0.019424907211214305
+[INFO/Agent-1] agent_0: mean/median reward 1.0/1.0, min/max reward 0.8/1.4
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 5.213907957077026
+[INFO/Agent-2] agent_1: Update #6, reward 1.409391574561596, likelihood [913.13482392], value_loss 934088836.8, action_loss 0.031293446151539686, dist_entropy 3.4693378806114197, grad_norm 7236.858391659289, reward_prediction_loss 0.02053685112623498
+[INFO/Agent-2] agent_1: mean/median reward 1.0/1.0, min/max reward 0.8/1.4
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.017736434936523438, copy time 0.22209644317626953
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 48. Efficiency: 37.50%. Efficiency per ref: [0.375]
+[INFO/Agent-2] agent_1: Sampling time: 33.317710399627686
+[INFO/Agent-1] agent_0: ref time 0.020238637924194336, copy time 0.2120373249053955
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 102. Efficiency: 79.69%. Efficiency per ref: [0.796875]
+[INFO/Agent-1] agent_0: Sampling time: 33.49149966239929
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 6.08000636100769
+[INFO/Agent-1] agent_0: Update #7, reward 0.9768840130418539, likelihood [1493.10655069], value_loss 941635795.2, action_loss -0.0055695782793918625, dist_entropy 3.429307109117508, grad_norm 6877.820552989304, reward_prediction_loss 0.01314595026196912
+[INFO/Agent-1] agent_0: mean/median reward 1.0/1.0, min/max reward 0.8/1.4
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 6.386359930038452
+[INFO/Agent-2] agent_1: Update #7, reward 0.9768840130418539, likelihood [944.86644328], value_loss 943809801.6, action_loss 0.033952355734072626, dist_entropy 3.4359629571437837, grad_norm 7173.418016301589, reward_prediction_loss 0.013696483429521322
+[INFO/Agent-2] agent_1: mean/median reward 1.0/1.0, min/max reward 0.8/1.4
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.027104616165161133, copy time 0.3229994773864746
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 105. Efficiency: 82.03%. Efficiency per ref: [0.8203125]
+[INFO/Agent-1] agent_0: Sampling time: 31.59227204322815
+[INFO/Agent-2] agent_1: ref time 0.02152848243713379, copy time 0.2745819091796875
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 33. Efficiency: 25.78%. Efficiency per ref: [0.2578125]
+[INFO/Agent-2] agent_1: Sampling time: 31.312026262283325
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 4.861258506774902
+[INFO/Agent-1] agent_0: Update #8, reward 1.4280702229589224, likelihood [1434.49913383], value_loss 934779411.2, action_loss 0.003405010438291356, dist_entropy 3.395298981666565, grad_norm 7649.05924940423, reward_prediction_loss 0.01962891307193786
+[INFO/Agent-1] agent_0: mean/median reward 1.1/1.0, min/max reward 0.8/1.4
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 5.239725351333618
+[INFO/Agent-2] agent_1: Update #8, reward 1.4280702229589224, likelihood [865.74235955], value_loss 941679867.2, action_loss 0.0053551857447018845, dist_entropy 3.409841924905777, grad_norm 7720.718071912537, reward_prediction_loss 0.019612621108535677
+[INFO/Agent-2] agent_1: mean/median reward 1.1/1.0, min/max reward 0.8/1.4
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.023108243942260742, copy time 0.30913734436035156
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 33. Efficiency: 25.78%. Efficiency per ref: [0.2578125]
+[INFO/Agent-2] agent_1: Sampling time: 33.70079040527344
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: ref time 0.02070760726928711, copy time 0.3406989574432373
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 105. Efficiency: 82.03%. Efficiency per ref: [0.8203125]
+[INFO/Agent-1] agent_0: Sampling time: 34.16252160072327
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 4.304200172424316
+[INFO/Agent-2] agent_1: Update #9, reward 0.9702818151563406, likelihood [826.94289025], value_loss 944266524.8, action_loss 0.015979610738577323, dist_entropy 3.3813137888908384, grad_norm 8030.069019386572, reward_prediction_loss 0.013162471528630704
+[INFO/Agent-2] agent_1: mean/median reward 1.0/1.0, min/max reward 0.8/1.4
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 5.669234752655029
+[INFO/Agent-1] agent_0: Update #9, reward 0.9702818151563406, likelihood [1507.85963985], value_loss 941546449.6, action_loss 0.01303840873297304, dist_entropy 3.358448326587677, grad_norm 7561.675431246603, reward_prediction_loss 0.013211852626409382
+[INFO/Agent-1] agent_0: mean/median reward 1.0/1.0, min/max reward 0.8/1.4
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.024964570999145508, copy time 0.2940380573272705
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 97. Efficiency: 75.78%. Efficiency per ref: [0.7578125]
+[INFO/Agent-1] agent_0: Sampling time: 34.66044330596924
+[INFO/Agent-2] agent_1: ref time 0.01990056037902832, copy time 0.2922201156616211
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 38. Efficiency: 29.69%. Efficiency per ref: [0.296875]
+[INFO/Agent-2] agent_1: Sampling time: 36.128422021865845
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 4.629195690155029
+[INFO/Agent-2] agent_1: Update #10, reward 1.134346004575491, likelihood [859.85767719], value_loss 936756208.0, action_loss 0.0010604219569358975, dist_entropy 3.341973727941513, grad_norm 7979.872319741739, reward_prediction_loss 0.015428730682469905
+[INFO/Agent-2] agent_1: mean/median reward 1.1/1.0, min/max reward 0.8/1.4
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 5.091618299484253
+[INFO/Agent-1] agent_0: Update #10, reward 1.134346004575491, likelihood [1395.44906774], value_loss 934297598.4, action_loss 0.04376827613450587, dist_entropy 3.338677096366882, grad_norm 8248.559503690753, reward_prediction_loss 0.015393476758617908
+[INFO/Agent-1] agent_0: mean/median reward 1.1/1.0, min/max reward 0.8/1.4
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.019585371017456055, copy time 0.21835660934448242
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 40. Efficiency: 31.25%. Efficiency per ref: [0.3125]
+[INFO/Agent-2] agent_1: Sampling time: 36.25768756866455
+[INFO/Agent-1] agent_0: ref time 0.02486896514892578, copy time 0.30574679374694824
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 104. Efficiency: 81.25%. Efficiency per ref: [0.8125]
+[INFO/Agent-1] agent_0: Sampling time: 35.86474657058716
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 2.7808659076690674
+[INFO/Agent-2] agent_1: Update #11, reward 1.5688504874706268, likelihood [851.32651821], value_loss 943434209.6, action_loss 0.0005705168936401605, dist_entropy 3.2859845042228697, grad_norm 8701.762790993718, reward_prediction_loss 0.022393621690571307
+[INFO/Agent-2] agent_1: mean/median reward 1.2/1.1, min/max reward 0.9/1.6
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 3.237907648086548
+[INFO/Agent-1] agent_0: Update #11, reward 1.5688504874706268, likelihood [1451.29190876], value_loss 941780334.4, action_loss 0.03176555696409196, dist_entropy 3.296790969371796, grad_norm 8527.802261326698, reward_prediction_loss 0.022469260776415468
+[INFO/Agent-1] agent_0: mean/median reward 1.2/1.1, min/max reward 0.9/1.6
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.01938462257385254, copy time 0.28545427322387695
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 98. Efficiency: 76.56%. Efficiency per ref: [0.765625]
+[INFO/Agent-1] agent_0: Sampling time: 35.83487105369568
+[INFO/Agent-2] agent_1: ref time 0.020422697067260742, copy time 0.25731372833251953
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 25. Efficiency: 19.53%. Efficiency per ref: [0.1953125]
+[INFO/Agent-2] agent_1: Sampling time: 36.3196234703064
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 4.0144202709198
+[INFO/Agent-2] agent_1: Update #12, reward 1.8913242164999247, likelihood [739.93271092], value_loss 937321934.4, action_loss 0.03940530903637409, dist_entropy 3.2371000409126283, grad_norm 8807.075942987683, reward_prediction_loss 0.025958999642170966
+[INFO/Agent-2] agent_1: mean/median reward 1.3/1.2, min/max reward 1.0/1.9
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 4.809000253677368
+[INFO/Agent-1] agent_0: Update #12, reward 1.8913242164999247, likelihood [1352.07559722], value_loss 942178337.6, action_loss 0.020791388652287423, dist_entropy 3.28334436416626, grad_norm 9040.241145437109, reward_prediction_loss 0.025991713046096265
+[INFO/Agent-1] agent_0: mean/median reward 1.3/1.2, min/max reward 1.0/1.9
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.019294023513793945, copy time 0.3648357391357422
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 86. Efficiency: 67.19%. Efficiency per ref: [0.671875]
+[INFO/Agent-1] agent_0: Sampling time: 35.84937024116516
+[INFO/Agent-2] agent_1: ref time 0.019468307495117188, copy time 0.3411865234375
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 31. Efficiency: 24.22%. Efficiency per ref: [0.2421875]
+[INFO/Agent-2] agent_1: Sampling time: 36.62198543548584
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.212521553039551
+[INFO/Agent-1] agent_0: Update #13, reward 1.8030343707650902, likelihood [1347.29229668], value_loss 929429347.2, action_loss 0.005262342412606813, dist_entropy 3.257114386558533, grad_norm 9394.300696556778, reward_prediction_loss 0.023687791801057755
+[INFO/Agent-1] agent_0: mean/median reward 1.3/1.3, min/max reward 1.0/1.9
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 5.346214771270752
+[INFO/Agent-2] agent_1: Update #13, reward 1.8030343707650902, likelihood [837.60827242], value_loss 939746742.4, action_loss 0.044074615673162044, dist_entropy 3.204022890329361, grad_norm 8903.860332074726, reward_prediction_loss 0.023576734494417904
+[INFO/Agent-2] agent_1: mean/median reward 1.3/1.3, min/max reward 1.0/1.9
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.022816181182861328, copy time 0.2824971675872803
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 97. Efficiency: 75.78%. Efficiency per ref: [0.7578125]
+[INFO/Agent-1] agent_0: Sampling time: 37.4985408782959
+[INFO/Agent-2] agent_1: ref time 0.022052526473999023, copy time 0.3004772663116455
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 29. Efficiency: 22.66%. Efficiency per ref: [0.2265625]
+[INFO/Agent-2] agent_1: Sampling time: 37.364537715911865
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.737646818161011
+[INFO/Agent-1] agent_0: Update #14, reward 1.8579121232032776, likelihood [1376.79887], value_loss 940507857.6, action_loss 0.012178445782046765, dist_entropy 3.230814057588577, grad_norm 9594.179653985182, reward_prediction_loss 0.02645245874300599
+[INFO/Agent-1] agent_0: mean/median reward 1.4/1.4, min/max reward 1.0/1.9
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 5.820868968963623
+[INFO/Agent-2] agent_1: Update #14, reward 1.8579121232032776, likelihood [773.39015141], value_loss 944473678.4, action_loss 0.0348166439216584, dist_entropy 3.172774523496628, grad_norm 9152.440242340032, reward_prediction_loss 0.026612264150753618
+[INFO/Agent-2] agent_1: mean/median reward 1.4/1.4, min/max reward 1.0/1.9
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.023734331130981445, copy time 0.3131692409515381
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 23. Efficiency: 17.97%. Efficiency per ref: [0.1796875]
+[INFO/Agent-2] agent_1: Sampling time: 36.92478847503662
+[INFO/Agent-1] agent_0: ref time 0.020531415939331055, copy time 0.310321569442749
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 95. Efficiency: 74.22%. Efficiency per ref: [0.7421875]
+[INFO/Agent-1] agent_0: Sampling time: 37.047935247421265
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 4.545409440994263
+[INFO/Agent-2] agent_1: Update #15, reward 1.9054953586310148, likelihood [757.0808091], value_loss 936686324.8, action_loss 0.008088965283241123, dist_entropy 3.189516633749008, grad_norm 9335.7380897892, reward_prediction_loss 0.025897550489753486
+[INFO/Agent-2] agent_1: mean/median reward 1.5/1.5, min/max reward 1.0/1.9
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 6.036967039108276
+[INFO/Agent-1] agent_0: Update #15, reward 1.9054953586310148, likelihood [1418.44011063], value_loss 937023816.0, action_loss 0.013390260562300683, dist_entropy 3.1967585027217864, grad_norm 10309.472414032074, reward_prediction_loss 0.025999895948916673
+[INFO/Agent-1] agent_0: mean/median reward 1.5/1.5, min/max reward 1.0/1.9
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.018358945846557617, copy time 0.33785414695739746
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 18. Efficiency: 14.06%. Efficiency per ref: [0.140625]
+[INFO/Agent-2] agent_1: Sampling time: 38.46296238899231
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: ref time 0.025313854217529297, copy time 0.3500194549560547
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 87. Efficiency: 67.97%. Efficiency per ref: [0.6796875]
+[INFO/Agent-1] agent_0: Sampling time: 36.99395418167114
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 6.146275281906128
+[INFO/Agent-2] agent_1: Update #16, reward 1.2800384350121021, likelihood [742.63758689], value_loss 944594640.0, action_loss -0.007391441101208329, dist_entropy 3.1595028758049013, grad_norm 10641.62477708699, reward_prediction_loss 0.017558753886260093
+[INFO/Agent-2] agent_1: mean/median reward 1.5/1.5, min/max reward 1.0/1.9
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 6.229063987731934
+[INFO/Agent-1] agent_0: Update #16, reward 1.2800384350121021, likelihood [1299.46832884], value_loss 942370625.6, action_loss 0.037104303319938484, dist_entropy 3.1837298572063446, grad_norm 10033.78349038977, reward_prediction_loss 0.017659606807865203
+[INFO/Agent-1] agent_0: mean/median reward 1.5/1.5, min/max reward 1.0/1.9
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.018280982971191406, copy time 0.4030611515045166
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 30. Efficiency: 23.44%. Efficiency per ref: [0.234375]
+[INFO/Agent-2] agent_1: Sampling time: 40.703794717788696
+[INFO/Agent-1] agent_0: ref time 0.022582292556762695, copy time 0.4337780475616455
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 91. Efficiency: 71.09%. Efficiency per ref: [0.7109375]
+[INFO/Agent-1] agent_0: Sampling time: 40.614025354385376
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 5.383776903152466
+[INFO/Agent-2] agent_1: Update #17, reward 2.2028165496885777, likelihood [786.98148979], value_loss 944406923.2, action_loss 0.01101356985163875, dist_entropy 3.0999446749687194, grad_norm 10302.885054330614, reward_prediction_loss 0.03000969821587205
+[INFO/Agent-2] agent_1: mean/median reward 1.6/1.7, min/max reward 1.0/2.2
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 6.220399618148804
+[INFO/Agent-1] agent_0: Update #17, reward 2.2028165496885777, likelihood [1381.56831775], value_loss 942077955.2, action_loss 0.019448970226221718, dist_entropy 3.1444455862045286, grad_norm 11185.637286078514, reward_prediction_loss 0.029911189060658216
+[INFO/Agent-1] agent_0: mean/median reward 1.6/1.7, min/max reward 1.0/2.2
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.04476475715637207, copy time 0.2661736011505127
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 92. Efficiency: 71.88%. Efficiency per ref: [0.71875]
+[INFO/Agent-1] agent_0: Sampling time: 36.91134595870972
+[INFO/Agent-2] agent_1: ref time 0.023885488510131836, copy time 0.30109405517578125
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 30. Efficiency: 23.44%. Efficiency per ref: [0.234375]
+[INFO/Agent-2] agent_1: Sampling time: 37.77965188026428
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 4.711517333984375
+[INFO/Agent-2] agent_1: Update #18, reward 2.234592642635107, likelihood [814.01832373], value_loss 936918528.0, action_loss -0.010975624370621518, dist_entropy 3.04934338927269, grad_norm 10523.309511398735, reward_prediction_loss 0.03100057877600193
+[INFO/Agent-2] agent_1: mean/median reward 1.7/1.8, min/max reward 1.0/2.2
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 5.301419258117676
+[INFO/Agent-1] agent_0: Update #18, reward 2.234592642635107, likelihood [1320.75963244], value_loss 934839638.4, action_loss 0.01127712674497161, dist_entropy 3.121150177717209, grad_norm 11455.594803573058, reward_prediction_loss 0.031047089910134672
+[INFO/Agent-1] agent_0: mean/median reward 1.7/1.8, min/max reward 1.0/2.2
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.02108597755432129, copy time 0.33745431900024414
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 78. Efficiency: 60.94%. Efficiency per ref: [0.609375]
+[INFO/Agent-1] agent_0: Sampling time: 39.479947566986084
+[INFO/Agent-2] agent_1: ref time 0.020326852798461914, copy time 0.3290722370147705
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 11. Efficiency: 8.59%. Efficiency per ref: [0.0859375]
+[INFO/Agent-2] agent_1: Sampling time: 40.06345462799072
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 3.969511032104492
+[INFO/Agent-2] agent_1: Update #19, reward 2.3304106146097183, likelihood [714.25249382], value_loss 938501795.2, action_loss 0.007742360531119629, dist_entropy 2.9754913210868836, grad_norm 11933.357656848535, reward_prediction_loss 0.031749733816832305
+[INFO/Agent-2] agent_1: mean/median reward 1.8/1.9, min/max reward 1.1/2.3
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 4.410907983779907
+[INFO/Agent-1] agent_0: Update #19, reward 2.3304106146097183, likelihood [1200.57695889], value_loss 939229072.0, action_loss 0.030774004163686187, dist_entropy 3.062447637319565, grad_norm 11912.911412210222, reward_prediction_loss 0.03181142779067159
+[INFO/Agent-1] agent_0: mean/median reward 1.8/1.9, min/max reward 1.1/2.3
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.017970561981201172, copy time 0.28479671478271484
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 21. Efficiency: 16.41%. Efficiency per ref: [0.1640625]
+[INFO/Agent-2] agent_1: Sampling time: 38.89841318130493
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: ref time 0.02117609977722168, copy time 0.35546302795410156
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 95. Efficiency: 74.22%. Efficiency per ref: [0.7421875]
+[INFO/Agent-1] agent_0: Sampling time: 38.54662299156189
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 4.379397392272949
+[INFO/Agent-2] agent_1: Update #20, reward 3.0147937536239624, likelihood [715.842607], value_loss 943542697.6, action_loss 0.025771334921591914, dist_entropy 2.9573580622673035, grad_norm 11913.420778481039, reward_prediction_loss 0.04168444098904729
+[INFO/Agent-2] agent_1: mean/median reward 2.0/1.9, min/max reward 1.3/3.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 4.488447904586792
+[INFO/Agent-1] agent_0: Update #20, reward 3.0147937536239624, likelihood [1353.23573288], value_loss 942104379.2, action_loss 0.02434453233727254, dist_entropy 3.0246284782886503, grad_norm 12101.622817876272, reward_prediction_loss 0.0415693128015846
+[INFO/Agent-1] agent_0: mean/median reward 2.0/1.9, min/max reward 1.3/3.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.018399953842163086, copy time 0.28502726554870605
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 80. Efficiency: 62.50%. Efficiency per ref: [0.625]
+[INFO/Agent-1] agent_0: Sampling time: 39.00962519645691
+[INFO/Agent-2] agent_1: ref time 0.01998424530029297, copy time 0.28095483779907227
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 21. Efficiency: 16.41%. Efficiency per ref: [0.1640625]
+[INFO/Agent-2] agent_1: Sampling time: 39.21136784553528
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.374475717544556
+[INFO/Agent-1] agent_0: Update #21, reward 2.507615063339472, likelihood [1276.348999], value_loss 942429979.2, action_loss 0.045086389593780044, dist_entropy 2.9857080936431886, grad_norm 11875.236842034037, reward_prediction_loss 0.03429318917915225
+[INFO/Agent-1] agent_0: mean/median reward 2.1/2.1, min/max reward 1.3/3.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 5.875334978103638
+[INFO/Agent-2] agent_1: Update #21, reward 2.507615063339472, likelihood [710.25153779], value_loss 938012076.8, action_loss 0.0014430737341172063, dist_entropy 2.8885838210582735, grad_norm 11472.208833707118, reward_prediction_loss 0.034497467521578076
+[INFO/Agent-2] agent_1: mean/median reward 2.1/2.1, min/max reward 1.3/3.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.022237062454223633, copy time 0.36689066886901855
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 27. Efficiency: 21.09%. Efficiency per ref: [0.2109375]
+[INFO/Agent-2] agent_1: Sampling time: 38.08758330345154
+[INFO/Agent-1] agent_0: ref time 0.022992610931396484, copy time 0.3181431293487549
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 81. Efficiency: 63.28%. Efficiency per ref: [0.6328125]
+[INFO/Agent-1] agent_0: Sampling time: 38.62731599807739
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 5.205122947692871
+[INFO/Agent-2] agent_1: Update #22, reward 1.6671747080981731, likelihood [785.20812712], value_loss 944424344.0, action_loss 0.007541086291894317, dist_entropy 2.843977451324463, grad_norm 12704.6686862745, reward_prediction_loss 0.02343470542691648
+[INFO/Agent-2] agent_1: mean/median reward 2.1/2.1, min/max reward 1.3/3.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 6.4105448722839355
+[INFO/Agent-1] agent_0: Update #22, reward 1.6671747080981731, likelihood [1191.6018392], value_loss 935912792.0, action_loss 0.00706368574174121, dist_entropy 2.9403837740421297, grad_norm 12230.656052196262, reward_prediction_loss 0.02341523766517639
+[INFO/Agent-1] agent_0: mean/median reward 2.1/2.1, min/max reward 1.3/3.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: ref time 0.020156145095825195, copy time 0.2908060550689697
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 90. Efficiency: 70.31%. Efficiency per ref: [0.703125]
+[INFO/Agent-1] agent_0: Sampling time: 38.00223684310913
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: ref time 0.016503572463989258, copy time 0.34662652015686035
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 30. Efficiency: 23.44%. Efficiency per ref: [0.234375]
+[INFO/Agent-2] agent_1: Sampling time: 39.2746467590332
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.628998041152954
+[INFO/Agent-1] agent_0: Update #23, reward 2.1067075077444315, likelihood [1259.75540836], value_loss 942491329.6, action_loss 0.03572505449410528, dist_entropy 2.8973330199718474, grad_norm 13631.987101277104, reward_prediction_loss 0.028258417174220084
+[INFO/Agent-1] agent_0: mean/median reward 2.1/2.2, min/max reward 1.3/3.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 5.95627760887146
+[INFO/Agent-2] agent_1: Update #23, reward 2.1067075077444315, likelihood [799.84297579], value_loss 934320766.4, action_loss 0.030023428780259563, dist_entropy 2.8343862652778626, grad_norm 13381.881529824284, reward_prediction_loss 0.028290495509281754
+[INFO/Agent-2] agent_1: mean/median reward 2.1/2.2, min/max reward 1.3/3.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.020677566528320312, copy time 0.30658984184265137
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 29. Efficiency: 22.66%. Efficiency per ref: [0.2265625]
+[INFO/Agent-2] agent_1: Sampling time: 38.5294144153595
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: ref time 0.03013777732849121, copy time 0.3648953437805176
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 76. Efficiency: 59.38%. Efficiency per ref: [0.59375]
+[INFO/Agent-1] agent_0: Sampling time: 38.99649477005005
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 4.871330499649048
+[INFO/Agent-2] agent_1: Update #24, reward 2.072721540927887, likelihood [806.77140092], value_loss 937412940.8, action_loss 0.0059260471316520125, dist_entropy 2.781853312253952, grad_norm 14058.485266580847, reward_prediction_loss 0.027881187247112395
+[INFO/Agent-2] agent_1: mean/median reward 2.1/2.2, min/max reward 1.3/3.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 6.0023157596588135
+[INFO/Agent-1] agent_0: Update #24, reward 2.072721540927887, likelihood [1211.02049297], value_loss 938399676.8, action_loss 0.025474995642434807, dist_entropy 2.8601039350032806, grad_norm 13527.743448984902, reward_prediction_loss 0.027936133719049395
+[INFO/Agent-1] agent_0: mean/median reward 2.1/2.2, min/max reward 1.3/3.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.024994373321533203, copy time 0.37434983253479004
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 26. Efficiency: 20.31%. Efficiency per ref: [0.203125]
+[INFO/Agent-2] agent_1: Sampling time: 40.82988381385803
+[INFO/Agent-1] agent_0: ref time 0.02424335479736328, copy time 0.37908220291137695
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 75. Efficiency: 58.59%. Efficiency per ref: [0.5859375]
+[INFO/Agent-1] agent_0: Sampling time: 39.66036581993103
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-2] agent_1: update time 5.791147947311401
+[INFO/Agent-2] agent_1: Update #25, reward 2.651864508166909, likelihood [788.96124933], value_loss 939635318.4, action_loss -0.0011437159497290849, dist_entropy 2.697457182407379, grad_norm 14033.650285380581, reward_prediction_loss 0.03808645848184824
+[INFO/Agent-2] agent_1: mean/median reward 2.2/2.2, min/max reward 1.3/3.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
+[INFO/Agent-1] agent_0: update time 6.25996208190918
+[INFO/Agent-1] agent_0: Update #25, reward 2.651864508166909, likelihood [1211.9256577], value_loss 942666190.4, action_loss 0.048853351501747966, dist_entropy 2.8412296652793883, grad_norm 14450.733322287258, reward_prediction_loss 0.037973838346078995
+[INFO/Agent-1] agent_0: mean/median reward 2.2/2.2, min/max reward 1.3/3.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: ref time 0.020909547805786133, copy time 0.2515590190887451
+[INFO/Agent-2] agent_1: Total explored episodes: 128. Accepted episodes: 21. Efficiency: 16.41%. Efficiency per ref: [0.1640625]
+[INFO/Agent-2] agent_1: Sampling time: 37.61106061935425
+[INFO/Agent-1] agent_0: ref time 0.027689218521118164, copy time 0.3106191158294678
+[INFO/Agent-1] agent_0: Total explored episodes: 128. Accepted episodes: 76. Efficiency: 59.38%. Efficiency per ref: [0.59375]
+[INFO/Agent-1] agent_0: Sampling time: 37.16901516914368
+[INFO/Agent-2] agent_1: use exploration rewards? True
+[INFO/Agent-1] agent_0: use exploration rewards? True
+[INFO/Agent-1] agent_0: update time 5.604727506637573
+[INFO/Agent-1] agent_0: Update #26, reward 2.6675484851002693, likelihood [1226.3354005], value_loss 935850904.0, action_loss 0.00440808800922241, dist_entropy 2.789960491657257, grad_norm 13945.383398431662, reward_prediction_loss 0.03645546268671751
+[INFO/Agent-1] agent_0: mean/median reward 2.3/2.3, min/max reward 1.7/3.0
+[INFO/Agent-1] agent_0: threshold omega: 1.0
+[INFO/Agent-1] agent_0: exploration reward omega: 1.0
+[INFO/Agent-2] agent_1: update time 6.197988748550415
+[INFO/Agent-2] agent_1: Update #26, reward 2.6675484851002693, likelihood [751.38327053], value_loss 944526500.8, action_loss 0.019513520918553694, dist_entropy 2.653999400138855, grad_norm 14363.957744753901, reward_prediction_loss 0.03643326535820961
+[INFO/Agent-2] agent_1: mean/median reward 2.3/2.3, min/max reward 1.7/3.0
+[INFO/Agent-2] agent_1: threshold omega: 1.0
+[INFO/Agent-2] agent_1: exploration reward omega: 1.0
