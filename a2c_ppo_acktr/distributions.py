@@ -86,7 +86,7 @@ class FixedNormalCategoricalMixture:
 
     def likelihoods(self, actions):
         continuous_a, discrete_a = actions.split(self.real_action_dims, -1)
-        return torch.cat([self.n.likelihoods(continuous_a), self.c.likelihoods(discrete_a)], -1)
+        return self.n.likelihoods(continuous_a) + self.c.likelihoods(discrete_a)
 
     def entropy(self):
         return self.c.entropy() + self.n.entropy()

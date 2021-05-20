@@ -1,0 +1,18 @@
+{
+    "agent_0": [
+      {
+        "load_dir": "./sync-results/agar/run-0/2021-05-19T10:00:15.846125#3534",
+        "load_step": null,
+        "num_refs": 0,
+        "load_agent": 0
+      }
+    ],
+    "agent_1": [
+      {
+        "load_dir": "./sync-results/agar/run-0/2021-05-19T10:00:15.846125#3534",
+        "load_step": null,
+        "num_refs": 0,
+        "load_agent": 1
+      }
+    ]
+  }

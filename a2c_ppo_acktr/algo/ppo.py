@@ -291,7 +291,7 @@ class PPO():
                 # print(test_strategy)
 
                 ratio = torch.exp(action_log_probs -
-                                  old_action_log_probs_batch)
+                                  old_action_log_probs_batch).mean(-1, keepdim=True)
                 surr1 = ratio * adv_targ
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
                                     1.0 + self.clip_param) * adv_targ
