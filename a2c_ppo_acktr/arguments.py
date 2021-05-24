@@ -89,6 +89,31 @@ def get_args(add_extra_args_fn=None, config=None):
         nargs="*",
         help='number of reference agents (for loading)')
     parser.add_argument(
+        '--collect-trajectories',
+        action='store_true',
+        default=False,
+        help='collect trajectories for DIPG')
+    parser.add_argument(
+        '--dipg',
+        action='store_true',
+        default=False,
+        help='use DIPG')
+    parser.add_argument(
+        '--dipg-k',
+        default=16,
+        type=int,
+        help='DIPG k for g')
+    parser.add_argument(
+        '--dipg-num-samples',
+        default=32,
+        type=int,
+        help='DIPG num samples')
+    parser.add_argument(
+        '--dipg-alpha',
+        default=1.0,
+        type=float,
+        help='DIPG alpha')
+    parser.add_argument(
         '--use-reference',
         action='store_true',
         default=False,
@@ -133,6 +158,11 @@ def get_args(add_extra_args_fn=None, config=None):
         action='store_true',
         default=False,
         help='do reward normalization (default: False)')
+    parser.add_argument(
+        '--obs-normalization',
+        action='store_true',
+        default=False,
+        help='do obs normalization (default: False)')
     parser.add_argument(
         '--use-attention',
         action='store_true',
@@ -211,9 +241,16 @@ def get_args(add_extra_args_fn=None, config=None):
         action="store_false",
         default=True)
     parser.add_argument(
+        '--use-timestep-mask',
+        action="store_true",
+        default=False)
+    parser.add_argument(
         '--use-reward-predictor',
         action="store_true",
         default=False)
+    parser.add_argument(
+        '--auto-threshold',
+        type=float)
     parser.add_argument(
         '--likelihood-alpha',
         type=float,

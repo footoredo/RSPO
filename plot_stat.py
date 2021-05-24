@@ -22,7 +22,7 @@ def plot_full(statistics, max_iter=None):
 
 def plot_agent(statistics):
     plot_agent_statistics(statistics, "reward")
-    # plot_agent_statistics(statistics, "dist_entropy")
+    plot_agent_statistics(statistics, "dist_entropy")
     plot_agent_statistics(statistics, "efficiency")
     # plot_agent_statistics(statistics, "grad_norm")
     # plot_agent_statistics(statistics, "value_loss")
@@ -73,6 +73,6 @@ def plot_all(path, agent, remote):
 
 
 if __name__ == "__main__":
-    plot_single("./sync-results/half-cheetah/0-step-action-mask-256-1000/2021-05-13T14:08:03.131780#7eb1",
-                None, True, max_iter=None)
+    plot_single("./sync-results/escalation-gw-find-all/find-all-threshold/2021-05-24T01:18:11.627262#4c70/stage-0/2021-05-24T01:18:17.313485#5ed5",
+                "0", True, max_iter=None)
     # plot_all("./sync-results/escalation-gw/1-prediction-new-2", None, True)

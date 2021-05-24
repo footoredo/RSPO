@@ -208,7 +208,8 @@ class Environment(mp.Process):
             for i, agent in enumerate(self.agents):
                 # self.log("{}, {}".format(i, agent))
                 # self.log("step {} - obs for {}: {}, {}, {}".format(i + 1, agent, obs[agent], rewards[agent], dones[agent]))
-                bad_mask = 0.0 if 'bad_transition' in infos[agent].keys() else 1.0
+                # print(infos, type(agent))
+                bad_mask = 0.0 if type(infos[agent]) is dict and 'bad_transition' in infos[agent].keys() else 1.0
                 self.write(obs_places[i], obs[agent], rewards[agent], reward_filters[agent](rewards[agent]), dones[agent], bad_mask)
                 not_done = not_done or not dones[agent]
             done = not not_done

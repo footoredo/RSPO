@@ -1,0 +1,30 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-mask/2021-05-18T16:12:21.775104#a39f",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-mask/2021-05-18T16:12:21.775104#a39f",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-mask/2021-05-18T16:12:21.775104#a39f",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/stag-hunt-gw/first-mask/2021-05-18T16:12:21.775104#a39f",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ]
+}

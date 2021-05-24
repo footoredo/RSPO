@@ -38,8 +38,9 @@ def sample_games(env, agents, num_games_total, args):
             _obs = np.array(obs[agent], dtype=np.float32)
             ts_obs = ts([_obs])
             masks = ts([[0.0] if dones[agent] else [1.0]])
-            strategy = agents[i].get_strategy(ts_obs, recurrent_hidden_states, masks).detach().squeeze().numpy()
-            action = np.random.choice(strategy.shape[0], p=strategy)
+            strategy = agents[i].get_strategy(ts_obs, recurrent_hidden_states, masks)
+            # action = np.random.choice(strategy.shape[0], p=strategy)
+            action = strategy.sample().detach().item()
             prediction = agents[i].get_reward_prediction(ts_obs, recurrent_hidden_states, masks, ts([[action]]))
             reward_prediction, random_net_value, random_net_prediction = prediction
             reward_predictions.append(reward_prediction.item())
@@ -48,7 +49,7 @@ def sample_games(env, agents, num_games_total, args):
             experiences[agent]["obs"].append(_obs)
             experiences[agent]["strategy"].append(strategy)
             experiences[agent]["action"].append(action)
-            experiences[agent]["action_onehot"].append(action_one_hot(strategy.shape[0], action))
+            experiences[agent]["action_onehot"].append(action_one_hot(strategy._num_events, action))
             actions[agent] = action
             strategies[agent] = strategy
         old_obs = obs

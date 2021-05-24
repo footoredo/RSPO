@@ -210,6 +210,9 @@ class PPO():
         num_mini_batch = self.num_mini_batch
         num_mini_batch_needed = num_mini_batch
 
+        dipg = self.args.dipg and self.args.use_reference
+        # print(dipg)
+
         # if self.cnt <= 1:
         #     ppo_epoch = 50
         #     num_mini_batch = 32
@@ -232,7 +235,7 @@ class PPO():
 
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
-                        adv_targ, interpolate_masks_batch, rewards_batch = sample
+                        adv_targ, interpolate_masks_batch, rewards_batch, mmds_batch = sample
 
                 batch_size = masks_batch.view(-1).size()[0]
                 half_batch_size = batch_size // 2
@@ -262,14 +265,14 @@ class PPO():
                 interpolate_masks_batch = interpolate_masks_batch.view(batch_size, -1)
                 rewards_batch = rewards_batch.view(batch_size, -1)
                 adv_targ = adv_targ.view(batch_size, -1)[:, :1 + num_refs * 2]
+                mmds_batch = mmds_batch.view(batch_size, -1)
                 # print(adv_targ)
 
                 # print(return_batch.size(), value_preds_batch.size(), adv_targ.size())
 
                 # Reshape to do in a single forward pass for all steps
                 values, action_log_probs, dist_entropy_all, _, dists = self.actor_critic.evaluate_actions(
-                    obs_batch, recurrent_hidden_states_batch, masks_batch,
-                    actions_batch)
+                    obs_batch, recurrent_hidden_states_batch, masks_batch, actions_batch)
 
                 # probs = self.actor_critic.get_strategy(obs_batch, recurrent_hidden_states_batch, masks_batch)
                 #
@@ -296,6 +299,11 @@ class PPO():
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
                                     1.0 + self.clip_param) * adv_targ
                 action_loss_all = -torch.min(surr1, surr2)
+
+                if dipg:
+                    dipg_loss_all = action_log_probs * mmds_batch
+                else:
+                    dipg_loss_all = torch.zeros_like(action_loss_all)
 
                 on_d = []
                 fgs = []
@@ -563,46 +571,15 @@ class PPO():
 
                 reward_prediction_loss = torch.tensor(0.)
 
-                if not self.ref:
-                    value_loss = value_loss_all.mean()
-                    action_loss = action_loss_all.mean()
-                    dist_entropy = dist_entropy_all.mean()
+                value_loss = value_loss_all.mean()
+                action_loss = action_loss_all.mean()
+                dist_entropy = dist_entropy_all.mean()
 
-                    if self.args.use_reward_predictor:
-                        reward_prediction_loss = reward_prediction_loss_all.mean()
-                else:
-                    ref_probs = self.ref_agent.get_probs(obs_batch, recurrent_hidden_states_batch, masks_batch, actions_batch).detach()
-                    # n_slices = 4
-                    # slice_size = batch_size // n_slices
-                    # ls = [slice_size * i for i in range(n_slices)]
-                    # rs = [slice_size * (i + 1) for i in range(n_slices)]
-                    # slice_probs = [ref_probs[ls[i]:rs[i]].mean().item() for i in range(n_slices)]
-                    # si = int(np.argmin(slice_probs))
-                    # value_loss = value_loss_all[ls[si]:rs[si]].mean()
-                    # action_loss = action_loss_all[ls[si]:rs[si]].mean()
-                    # dist_entropy = dist_entropy_all[ls[si]:rs[si]].mean()
-                    # print(slice_probs)
+                if self.args.use_reward_predictor:
+                    reward_prediction_loss = reward_prediction_loss_all.mean()
+                    # print("!!!")]
 
-                    print(ref_probs)
-
-                    value_loss = torch.mul(value_loss_all, ref_probs).mean()
-                    action_loss = torch.mul(action_loss_all, ref_probs).mean()
-                    dist_entropy = torch.mul(dist_entropy_all, ref_probs).mean()
-
-                    # if ref_probs[:half_batch_size].mean() < ref_probs[half_batch_size:].mean() - 0.01:
-                    #     value_loss = value_loss_all[:half_batch_size].mean()
-                    #     action_loss = action_loss_all[:half_batch_size].mean()
-                    #     dist_entropy = dist_entropy_all[:half_batch_size].mean()
-                    # elif ref_probs[:half_batch_size].mean() > ref_probs[half_batch_size:].mean() + 0.01:
-                    #     value_loss = value_loss_all[half_batch_size:].mean()
-                    #     action_loss = action_loss_all[half_batch_size:].mean()
-                    #     dist_entropy = dist_entropy_all[half_batch_size:].mean()
-                    # else:
-                    #     value_loss = torch.tensor(0.)
-                    #     action_loss = torch.tensor(0.)
-                    #     dist_entropy = torch.tensor(0.)
-                    # print(ref_probs[:half_batch_size].mean(), ref_probs[half_batch_size:].mean())
-                # print(dist_entropy.size(), value_loss.size())
+                dipg_loss = dipg_loss_all.mean()
 
                 if self.task is None:
                     action_loss_mask = 1.
@@ -610,9 +587,13 @@ class PPO():
                     self.optimizer.zero_grad()
                     self.reward_optimizer.zero_grad()
                     # self.value_loss_coef = 0.
-                    (value_loss * self.value_loss_coef + rollouts.action_loss_coef * action_loss_mask * action_loss -
-                     dist_entropy * self.entropy_coef).backward()
-                    (reward_prediction_loss * self.reward_prediction_loss_coef).backward()
+                    loss = value_loss * self.value_loss_coef + rollouts.action_loss_coef * action_loss_mask * \
+                           action_loss - dist_entropy * self.entropy_coef
+                    if dipg:
+                        loss += dipg_loss * self.args.dipg_alpha
+                    loss.backward()
+                    if self.args.use_reward_predictor:
+                        (reward_prediction_loss * self.reward_prediction_loss_coef).backward()
 
                     total_norm = 0.
                     for name, p in self.actor_critic.named_parameters():
@@ -628,7 +609,8 @@ class PPO():
                                                  self.max_grad_norm)
                     self.optimizer.step()
 
-                    self.reward_optimizer.step()
+                    if self.args.use_reward_predictor:
+                        self.reward_optimizer.step()
                 elif self.task[:4] == "grad":
                     if return_batch[0].item() > 0.5:
                         g = flat_view(ggrad(self.actor_critic, action_loss)).detach()

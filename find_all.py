@@ -64,8 +64,11 @@ def main():
 
         for i in range(args.runs_per_stage):
             print(f"run #{i}", end=" ... ", flush=True)
-            subprocess.run(["python", "ma_main.py", f"--config={config_path}",
-                            f"--seed={random.getrandbits(16)}"], capture_output=True)
+            commands = ["python", "ma_main.py", f"--config={config_path}", f"--seed={random.getrandbits(16)}"]
+            # os.system(" ".join(commands))
+            # subprocess.run(commands, capture_output=False)
+            p = subprocess.call(commands)
+            # p.wait()
             print("done")
 
         for folder in os.listdir(save_dir):
@@ -88,9 +91,8 @@ def main():
                 pass
 
         for _finding in _findings:
-            likelihoods.append(args.default_likelihood)
-            likelihoods.append(args.default_likelihood)
             for i_agent in agents:
+                likelihoods.append(args.default_likelihood)
                 for j_agent in agents:
                     ref_config[i_agent].append({
                         "load_dir": _finding["save_dir"],

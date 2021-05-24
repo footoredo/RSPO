@@ -428,13 +428,15 @@ class LinearBase(NNBase):
 
 class MLPBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh", critic_dim=1, is_ref=False,
-                 predict_reward=False, num_actions=1, action_embedding=None):
+                 predict_reward=False, num_actions=1, action_embedding=None, timestep_mask=False):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         # print("start")
 
         if recurrent:
             num_inputs = hidden_size
+
+        self.timestep_mask = timestep_mask and not recurrent
 
         # print(is_ref)
 
@@ -455,6 +457,11 @@ class MLPBase(NNBase):
         self.actor = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_size)), activation_fn(),
             init_(nn.Linear(hidden_size, hidden_size)), activation_fn())
+
+        self.action_input_mask = torch.ones(num_inputs)
+        if self.timestep_mask:
+            self.action_input_mask[0] = 0.
+
         # print("finish", num_inputs, hidden_size)
         # if not is_ref:
         #     print("C", critic_dim, num_inputs, hidden_size)
@@ -497,11 +504,8 @@ class MLPBase(NNBase):
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
 
-        action_input_mask = torch.ones(inputs.size()[-1])
-        action_input_mask[0] = 0.
-
         hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x * action_input_mask)
+        hidden_actor = self.actor(x * self.action_input_mask)
 
         if self.predict_reward and actions is not None:
             # print(inputs.size(), actions.size())

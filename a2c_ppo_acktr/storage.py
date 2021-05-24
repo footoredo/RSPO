@@ -25,6 +25,7 @@ class RolloutStorage(object):
         self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
         self.dice_deps = torch.zeros(num_steps, num_processes, 1)
         self.interpolate_masks = torch.zeros(num_steps, num_processes, num_refs * 2 + 1)
+        self.mmds = torch.zeros(num_steps, num_processes, 1)
         self.action_loss_coef = 1.0
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
@@ -55,6 +56,7 @@ class RolloutStorage(object):
         self.actions = self.actions.to(device)
         self.masks = self.masks.to(device)
         self.bad_masks = self.bad_masks.to(device)
+        self.mmds = self.bad_masks.to(mmds)
 
     def insert(self, obs, original_obs, recurrent_hidden_states, actions, action_log_probs,
                value_preds, rewards, original_rewards, masks, bad_masks):
@@ -92,7 +94,8 @@ class RolloutStorage(object):
             for j in range(self.rewards.size()[1]):
                 for k in range(episode_steps):
                     returns[episode_cnt] += self.rewards[i * episode_steps + k, j, 0].item()
-                    likelihoods[episode_cnt] += self.rewards[i * episode_steps + k, j, 1 + num_refs * 2:].detach().numpy()
+                    likelihoods[episode_cnt] += self.rewards[i * episode_steps + k, j,
+                                                1 + num_refs * 2:].detach().numpy()
                 episode_cnt += 1
 
         for cni in range(num_refs):
@@ -138,7 +141,8 @@ class RolloutStorage(object):
             interpolate_masks = torch.cat([alphas[0] * extrinsic_mask, alphas[1] * prediction_masks,
                                            alphas[2] * exploration_masks], dim=2)
         # print(interpolate_masks.size(), interpolate_masks[0, 0], self.rewards[0, 0])
-        print(interpolate_masks.size(), self.interpolate_masks.size())
+        # print(interpolate_masks.size(), self.interpolate_masks.size())
+        # print(interpolate_masks)
         self.interpolate_masks.copy_(interpolate_masks)
 
     def compute_returns(self,
@@ -168,8 +172,8 @@ class RolloutStorage(object):
                 self.returns[-1] = next_value
                 for step in reversed(range(self.rewards.size(0))):
                     self.returns[step] = (self.returns[step + 1] * \
-                        gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
-                        + (1 - self.bad_masks[step + 1]) * self.value_preds[step]
+                                          gamma * self.masks[step + 1] + self.rewards[step]) * self.bad_masks[step + 1] \
+                                         + (1 - self.bad_masks[step + 1]) * self.value_preds[step]
         else:
             if use_gae:
                 self.value_preds[-1] = next_value
@@ -281,7 +285,7 @@ class RolloutStorage(object):
             # print(data_shape)
             # print(mini_batch_size, batch_size, num_mini_batch)
             if episode_steps > 1:
-                return data[:num_steps].reshape(-1, episode_steps, num_processes, *data_shape).transpose(1, 2).\
+                return data[:num_steps].reshape(-1, episode_steps, num_processes, *data_shape).transpose(1, 2). \
                     reshape(-1, episode_steps, *data_shape)
             else:
                 return data[:num_steps].view(-1, *data_shape)
@@ -301,6 +305,7 @@ class RolloutStorage(object):
         action_log_probs = step_view(self.action_log_probs)
         interpolate_masks = step_view(self.interpolate_masks)
         rewards = step_view(self.original_rewards)
+        mmds = step_view(self.mmds)
 
         if advantages is not None:
             advantages = step_view(advantages)
@@ -316,6 +321,7 @@ class RolloutStorage(object):
                 old_action_log_probs_batch = action_log_probs[indices]
                 interpolate_masks_batch = interpolate_masks[indices]
                 rewards_batch = rewards[indices]
+                mmds_batch = mmds[indices]
 
                 if advantages is None:
                     adv_targ = None
@@ -323,7 +329,8 @@ class RolloutStorage(object):
                     adv_targ = advantages[indices]
 
                 yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, \
-                      masks_batch, old_action_log_probs_batch, adv_targ, interpolate_masks_batch, rewards_batch
+                      masks_batch, old_action_log_probs_batch, adv_targ, interpolate_masks_batch, rewards_batch, \
+                      mmds_batch
 
     def recurrent_generator(self, advantages, num_mini_batch, episode_steps=1):
         assert episode_steps == 1
@@ -382,7 +389,7 @@ class RolloutStorage(object):
             return_batch = _flatten_helper(T, N, return_batch)
             masks_batch = _flatten_helper(T, N, masks_batch)
             old_action_log_probs_batch = _flatten_helper(T, N, \
-                    old_action_log_probs_batch)
+                                                         old_action_log_probs_batch)
             adv_targ = _flatten_helper(T, N, adv_targ)
 
             yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, \

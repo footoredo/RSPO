@@ -1,0 +1,30 @@
+{
+    "0": [
+        {
+            "load_dir": "./sync-results/escalation-gw/find-all-auto/2021-05-24T00:42:33.601518#8c9f/stage-0/2021-05-24T00:42:39.270657#74d5",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/find-all-auto/2021-05-24T00:42:33.601518#8c9f/stage-0/2021-05-24T00:42:39.270657#74d5",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ],
+    "1": [
+        {
+            "load_dir": "./sync-results/escalation-gw/find-all-auto/2021-05-24T00:42:33.601518#8c9f/stage-0/2021-05-24T00:42:39.270657#74d5",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "0"
+        },
+        {
+            "load_dir": "./sync-results/escalation-gw/find-all-auto/2021-05-24T00:42:33.601518#8c9f/stage-0/2021-05-24T00:42:39.270657#74d5",
+            "load_step": null,
+            "num_refs": 0,
+            "load_agent": "1"
+        }
+    ]
+}

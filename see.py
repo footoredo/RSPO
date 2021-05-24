@@ -40,6 +40,8 @@ DIR = f"./sync-results/{env}/{sys.argv[2]}/"
 
 total_gather_count = np.zeros((5, 5), dtype=int)
 
+simple_more_hard_rewards = []
+
 
 for folder in sorted(Path(os.path.abspath(DIR)).iterdir(), key=os.path.getmtime):
     try:
@@ -53,7 +55,17 @@ for folder in sorted(Path(os.path.abspath(DIR)).iterdir(), key=os.path.getmtime)
         print(folder)
         print(config["seed"], config["num_steps"], config["train_in_turn"])
         print(f'rewards: {statistics["rewards"]}')
-        show_play_statistics(env, statistics, config["episode_steps"])
+        show_play_statistics(config["env_name"], statistics, config["episode_steps"])
+
+        if config["env_name"] == "simple-more" and config["env_config"].endswith("-hard.json"):
+            cnt = statistics["reach_cnt"]
+            hard_rewards = [1.0, 1.1, 1.2, 1.3]
+            reward = 0.0
+            for i in range(4):
+                reward += cnt[i] * hard_rewards[i]
+            reward /= config["num_games_after_training"]
+            simple_more_hard_rewards.append(reward)
+
         # if env == "escalation-gw":
         #     # print(statistics["cnt_after_meeting"][:20])
         #     max_step = 0
@@ -95,6 +107,8 @@ if env == "stag-hunt-gw":
     print("Total")
     print(total_gather_count)
 
+if len(simple_more_hard_rewards) > 0:
+    print(simple_more_hard_rewards)
 
 # json.dump(ref_config, open("ref_config.json", "w"), indent=4)
 

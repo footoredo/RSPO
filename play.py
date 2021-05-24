@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--no-load-refs", action="store_true", default=False)
     parser.add_argument("--num-games-after-training", type=int, default=1)
     parser.add_argument("--render", action="store_true", default=False)
+    parser.add_argument("--gif", action="store_true", default=False)
 
     args = parser.parse_args()
 

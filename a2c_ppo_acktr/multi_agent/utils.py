@@ -3,6 +3,7 @@ import torch
 import os
 import pathlib
 import json
+import math
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -23,6 +24,14 @@ SSH = None
 # plt.rcParams["axes.spines.right"] = False
 # plt.rcParams["grid.alpha"] = 0.5
 # plt.rcParams["grid.alpha"] = 0.5
+
+
+def dipg_ker(d, width=1.):
+    n = d.shape[-1]
+    d = np.minimum(np.abs(d), 1.)
+    # print(np.square(d).sum(axis=-1))
+    # return math.pow(math.sqrt(2 * math.pi) * width, -n) * np.exp(-np.square(d).sum(axis=-1) / (2 * math.pow(width, 2))).mean()
+    return np.exp(-np.square(d).sum(axis=-1) / (2 * math.pow(width, 2))).mean()
 
 
 def show_play_statistics(env_name, statistics, episode_steps=None):
@@ -55,8 +64,11 @@ def show_play_statistics(env_name, statistics, episode_steps=None):
                               "cnt:", statistics[f"cnt_matrix_{i}"][j, k])
         elif env_name == "half-cheetah":
             keys = ["normal", "reversed", "front_upright", "back_upright"]
+        elif env_name == "simple-more":
+            keys = ["reach_cnt", "reach_steps", "total_reach"]
+            # keys = []
         else:
-            raise NotImplementedError
+            pass
 
         for key in keys:
             print(key, statistics[key])
@@ -77,6 +89,22 @@ def get_action_size(action_space, in_buffer=False):
 def get_action_recover_fn(action_space):
     if action_space.__class__.__name__ == "Discrete":
         return lambda a: int(a[0])
+    elif action_space.__class__.__name__ == "Box":
+        return lambda a: a
+    else:
+        raise NotImplementedError
+
+
+def get_action_repr_fn(action_space):
+    if action_space.__class__.__name__ == "Discrete":
+        n = action_space.n
+
+        def action_repr(_action):
+            _action_repr = np.zeros((_action.shape[0], n))
+            _action_repr[_action] = 1.
+            return _action_repr
+
+        return action_repr
     elif action_space.__class__.__name__ == "Box":
         return lambda a: a
     else:
@@ -105,7 +133,7 @@ def get_ssh():
 
     ssh_config = CONFIDENTIAL["ssh"]
 
-    which = "local"
+    which = "remote"
 
     ssh = SSHClient()
     ssh.load_system_host_keys()
@@ -165,7 +193,11 @@ def make_env(env_name, steps, env_config=None):
     if steps is None:
         steps = 32
     env_config_file = env_config or f"./env-configs/{env_name}-default.json"
-    env_config = json.load(open(env_config_file))
+    try:
+        env_config = json.load(open(env_config_file))
+    except FileNotFoundError:
+        print(f"{env_config_file} doesn't exist!")
+        env_config = dict()
     if env_name == "simple-tag":
         from pettingzoo.mpe import simple_tag_v1
         return simple_tag_v1.parallel_env(max_frames=steps, **env_config)
@@ -191,8 +223,23 @@ def make_env(env_name, steps, env_config=None):
         from pettingzoo.matrix_game import prisoners_dilemma_v1
         return prisoners_dilemma_v1.parallel_env(max_frames=steps, **env_config)
     elif env_name == 'half-cheetah':
-        from pettingzoo.mujoco import half_cheetah_v3
-        return half_cheetah_v3.parallel_env(max_frames=steps, **env_config)
+        from pettingzoo.mujoco import half_cheetah_v2
+        return half_cheetah_v2.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'hopper':
+        from pettingzoo.mujoco import hopper_v2
+        return hopper_v2.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'walker2d':
+        from pettingzoo.mujoco import walker2d_v2
+        return walker2d_v2.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'swimmer':
+        from pettingzoo.mujoco import swimmer_v2
+        return swimmer_v2.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'ant':
+        from pettingzoo.mujoco import ant_v2
+        return ant_v2.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'humanoid':
+        from pettingzoo.mujoco import humanoid_v2
+        return humanoid_v2.parallel_env(max_frames=steps, **env_config)
     else:
         raise NotImplementedError(env_name)
 
@@ -241,20 +288,24 @@ def displot(data):
     plt.show()
 
 
-def load_actor_critic(actor_critic, load_dir, agent_name, load_step=None):
+def load_actor_critic(actor_critic, load_dir, agent_name, load_step=None, load_trajectories=False):
     if load_step is not None:
-        load_path = os.path.join(load_dir, str(agent_name), "update-{}".format(load_step), "model.obj")
+        load_path = os.path.join(load_dir, str(agent_name), "update-{}".format(load_step))
     else:
-        load_path = os.path.join(load_dir, str(agent_name), "model.obj")
+        load_path = os.path.join(load_dir, str(agent_name))
+    if load_trajectories:
+        trajectories = np.load(os.path.join(load_path, "trajectories.npy"))
+    else:
+        trajectories = None
     # print(load_path)
-    loaded = torch.load(load_path)
+    loaded = torch.load(os.path.join(load_path, "model.obj"))
     if type(loaded) is tuple and len(loaded) == 2:
         state_dict, obs_rms = loaded
     else:
         state_dict = loaded
         obs_rms = None
     actor_critic.load_state_dict(state_dict)
-    return obs_rms
+    return obs_rms, trajectories
 
 
 def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir, n_ref=0, is_ref=False):
@@ -281,10 +332,11 @@ def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir,
             base_kwargs={'recurrent': args.recurrent_policy,
                          'critic_dim': n_ref * 2 + 1,
                          'is_ref': is_ref,
-                         'predict_reward': args.use_reward_predictor})
+                         'predict_reward': args.use_reward_predictor,
+                         'timestep_mask': args.use_timestep_mask})
         # if not is_ref:
         #     print("B")
-
+    # print("actor critic got")
     # if not is_ref:
     #     print("!!@!@")
 
