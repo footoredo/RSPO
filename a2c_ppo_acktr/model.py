@@ -15,7 +15,7 @@ class Flatten(nn.Module):
 
 
 class Policy(nn.Module):
-    def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):
+    def __init__(self, obs_shape, action_space, action_activation=None, base=None, base_kwargs=None):
         super(Policy, self).__init__()
         if base_kwargs is None:
             base_kwargs = {}
@@ -49,6 +49,11 @@ class Policy(nn.Module):
         base_kwargs["num_actions"] = num_outputs
         base_kwargs["action_embedding"] = action_embedding
 
+        self.ob_dim = obs_shape[0]
+        self.h_dim = base_kwargs["hidden_size"]
+        self.ac_dim = num_outputs
+
+
         # print("start")
         self.base = base(obs_shape[0], **base_kwargs)
         # print('finish')
@@ -56,11 +61,46 @@ class Policy(nn.Module):
         if action_space.__class__.__name__ == "Discrete":
             self.dist = Categorical(self.base.output_size, num_outputs, is_ref=base_kwargs["is_ref"])
         elif action_space.__class__.__name__ == "Box":
-            self.dist = DiagGaussian(self.base.output_size, num_outputs)
+            self.dist = DiagGaussian(self.base.output_size, num_outputs, activation=action_activation)
         elif action_space.__class__.__name__ == "MultiBinary":
             self.dist = Bernoulli(self.base.output_size, num_outputs)
 
         self.obs_rms = None
+
+    def _get_weights(self, weights, sizes):
+        hiddens = []
+        biases = []
+        cur = 0
+        for x, y in sizes:
+            hiddens.append(torch.tensor(weights[cur: cur + x * y].reshape(x, y), dtype=torch.float))
+            cur += x * y
+        for x, _ in sizes[:-1]:
+            biases.append(torch.tensor(weights[cur: cur + x].reshape(x), dtype=torch.float))
+            cur += x
+        return hiddens, biases
+
+    def load_DvD_weight(self, weight_path):
+        weights = np.load(weight_path)
+        mu = weights[-self.ob_dim * 2: -self.ob_dim]
+        std = weights[-self.ob_dim:]
+        from stable_baselines3.common.running_mean_std import RunningMeanStd
+        self.obs_rms = RunningMeanStd(shape=(self.ob_dim,))
+        self.obs_rms.mean = mu
+        self.obs_rms.var = np.square(std)
+        # print(mu, std)
+        weights = weights[:-self.ob_dim * 2]
+        sizes = [(self.h_dim, self.ob_dim), (self.h_dim, self.h_dim), (self.ac_dim, self.h_dim)]
+        hiddens, weights = self._get_weights(weights, sizes)
+        h1, h2, h999 = hiddens
+        b1, b2 = weights
+        self.base.actor[0].weight.data = h1
+        self.base.actor[0].bias.data = b1
+        self.base.actor[2].weight.data = h2
+        self.base.actor[2].bias.data = b2
+        self.dist.fc_mean[0].weight.data = h999
+        self.dist.fc_mean[0].bias.data.fill_(0.)
+
+        # print("!!!")
 
     def normalize_obs(self, obs):
         obs_rms = self.obs_rms
@@ -71,6 +111,7 @@ class Policy(nn.Module):
             epsilon = 1e-8
             clip_obs = 10.
             obs = torch.clamp((obs - obs_rms.mean) / np.sqrt(obs_rms.var + epsilon), -clip_obs, clip_obs)
+            # print(obs)
             return obs
         else:
             return obs
@@ -428,7 +469,7 @@ class LinearBase(NNBase):
 
 class MLPBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=64, activation="tanh", critic_dim=1, is_ref=False,
-                 predict_reward=False, num_actions=1, action_embedding=None, timestep_mask=False):
+                 predict_reward=False, num_actions=1, action_embedding=None, timestep_mask=False, rnd=False):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         # print("start")
@@ -483,14 +524,16 @@ class MLPBase(NNBase):
                 nn.Linear(num_inputs + num_actions, hidden_size), activation_fn(),
                 nn.Linear(hidden_size, 1)
             )
-            # self.random_net = nn.Sequential(
-            #     nn.Linear(num_inputs + num_actions, hidden_size), activation_fn(),
-            #     nn.Linear(hidden_size, 1)
-            # )
-            # self.random_net_predictor = nn.Sequential(
-            #     nn.Linear(num_inputs + num_actions, hidden_size), activation_fn(),
-            #     nn.Linear(hidden_size, 1)
-            # )
+        self.rnd = rnd
+        if rnd:
+            self.random_net = nn.Sequential(
+                nn.Linear(num_inputs, hidden_size), activation_fn(),
+                nn.Linear(hidden_size, 32)
+            )
+            self.random_net_predictor = nn.Sequential(
+                nn.Linear(num_inputs, hidden_size), activation_fn(),
+                nn.Linear(hidden_size, 32)
+            )
 
         self.train()
 
@@ -513,12 +556,15 @@ class MLPBase(NNBase):
             actions = self.action_embedding(actions)
             _inputs = torch.cat((inputs, actions), dim=-1)
             reward_prediction = self.predictor(_inputs)
-            # random_net_value = self.random_net(_inputs).detach()
-            # random_net_prediction = self.random_net_predictor(_inputs)
-            # prediction = (reward_prediction, random_net_value, random_net_prediction)
-            prediction = (reward_prediction, None, None)
         else:
-            prediction = None
+            reward_prediction = None
+        if self.rnd:
+            random_net_value = self.random_net(inputs).detach()
+            random_net_prediction = self.random_net_predictor(inputs)
+        else:
+            random_net_value = None
+            random_net_prediction = None
+        prediction = (reward_prediction, random_net_value, random_net_prediction)
 
         return self.critic_linear(hidden_critic), hidden_actor, prediction, rnn_hxs
 

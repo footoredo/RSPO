@@ -44,6 +44,8 @@ def main():
         config["use_reference"] = True
         config["num_refs"] = num_refs
 
+    config["load_dvd_weights_dir"] = None
+
     # print(config["num_refs"])
     # exit(0)
 
@@ -51,6 +53,10 @@ def main():
     json.dump(config, open(config_path, "w"))
 
     subprocess.run(["python", "ma_main.py", f"--config={config_path}"])
+
+    if args.gif:
+        import shutil
+        shutil.move("/tmp/plays.gif", os.path.join(args.load_dir, "plays.gif"))
 
 
 if __name__ == "__main__":

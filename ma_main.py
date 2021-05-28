@@ -22,7 +22,7 @@ from copy import deepcopy
 
 import math
 
-import mujoco_py
+# import mujoco_py
 
 
 def train_in_turn(n_agents, i, n_iter):
@@ -328,6 +328,9 @@ def _run(args, logger):
 
     close_to = [0, 0, 0, 0, 0]
     gather_count = np.zeros((5, 5), dtype=int)
+    eat_fruit_cnt = [0, 0]
+    hurt_cnt = [0, 0]
+    attack_cnt = 0
     first_gather_count = np.zeros((5, 5), dtype=int)
     gathered = False
     sum_reward = np.zeros(num_agents)
@@ -335,6 +338,8 @@ def _run(args, logger):
     actions_after_meeting = np.zeros((max_meet, 2, 5), dtype=float)
     cnt_after_meeting = np.zeros(max_meet, dtype=int)
     cnt_escalation_move = np.zeros(4, dtype=int)
+
+    healthy_cnt = 0
 
     reach_1 = 0
     reach_key = 0
@@ -381,6 +386,7 @@ def _run(args, logger):
         meet = False
         if args.gif:
             if is_mujoco:
+                import mujoco_py
                 env.env.viewer = mujoco_py.MjViewer(env.env.sim)
                 # img = env.env.sim.render(width=256, height=256, depth=False, mode='offscreen', camera_name='track')
             gif_images.append(env.render(mode='rgb_array'))
@@ -452,6 +458,14 @@ def _run(args, logger):
             for i, agent in enumerate(env.agents):
                 sum_reward[i] += rewards[agent]
             if args.env_name == "stag-hunt-gw":
+                # for i in range(2):
+                #     print(env.env.agents[i].reward_this_turn)
+                #     if env.env.agents[i].reward_this_turn == env.env.defect:
+                #         eat_fruit_cnt[i] += 1
+                #     elif env.env.agents[i].reward_this_turn == env.env.gore:
+                #         hurt_cnt[i] += 1
+                #     elif env.env.agents[i].reward_this_turn == env.env.coop:
+                #         attack_cnt[i] += 1
                 if env.env.agents[0].pos[0] == env.env.agents[1].pos[0] and \
                         env.env.agents[0].pos[1] == env.env.agents[1].pos[1]:
                     gather_count[env.env.agents[0].pos[0]][env.env.agents[0].pos[1]] += 1
@@ -555,8 +569,19 @@ def _run(args, logger):
                     # actions_after_meeting[0][actions[0]] += 1
                     # actions_after_meeting[1][actions[1]] += 1
 
+            if is_mujoco:
+                if hasattr(env.env, "is_healthy"):
+                    healthy_cnt += 1 if env.env.is_healthy else 0
+
             if not not_done:
                 num_games += 1
+                if args.env_name == "stag-hunt-gw":
+                    eat_fruit_cnt[0] += env.env.hare1_num
+                    eat_fruit_cnt[1] += env.env.hare2_num
+                    hurt_cnt[0] += env.env.gore1_num
+                    hurt_cnt[1] += env.env.gore2_num
+                    attack_cnt += env.env.coop_num
+
                 # print(num_games)
                 # print(infos[env.agents[0]])
                 # if is_simple:
@@ -572,7 +597,7 @@ def _run(args, logger):
 
         if args.gif:
             from a2c_ppo_acktr.multi_agent.utils import save_gif
-            save_gif(images, os.path.join(save_dir, "plays.gif"), 15)
+            save_gif(images, os.path.join("/tmp", "plays.gif"), 15)
 
     for i, agent in enumerate(agents):
         main_agent_conns[i].send(None)
@@ -587,7 +612,14 @@ def _run(args, logger):
 
     play_statistics = dict(rewards=sum_reward / args.num_games_after_training,
                            episode_steps=episode_steps)
+
+    if is_mujoco:
+        print("healthy_rate", healthy_cnt / args.num_games_after_training / episode_steps)
+
     if args.env_name == "stag-hunt-gw":
+        print("eat_fruit_cnt:", eat_fruit_cnt)
+        print("hurt_cnt:", hurt_cnt)
+        print("attack_cnt:", attack_cnt)
         play_statistics["gather_count"] = gather_count
         play_statistics["first_gather_count"] = first_gather_count
 

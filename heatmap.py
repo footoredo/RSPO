@@ -3,10 +3,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot(gather_count):
+def plot(gather_count, filename):
+    gather_count = np.log(gather_count + 1)
     sns.color_palette("light:b", as_cmap=True)
-    ax = sns.heatmap(gather_count, vmax=8, vmin=0, cmap="Purples")
-    plt.show()
+    ax = sns.heatmap(gather_count, vmax=8, vmin=0, cmap="Purples",
+                     xticklabels=False, yticklabels=False, cbar=False,
+                     square=True)
+    ax.spines['top'].set_visible(True)
+    ax.spines['right'].set_visible(True)
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+    [i.set_linewidth(2) for i in ax.spines.values()]
+    plt.tight_layout()
+    # plt.show()
+    plt.savefig(filename)
 
 
 def main():

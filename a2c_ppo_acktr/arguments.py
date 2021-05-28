@@ -28,6 +28,21 @@ def get_args(add_extra_args_fn=None, config=None):
         default='./gail_experts',
         help='directory that contains expert demonstrations for gail')
     parser.add_argument(
+        '--hidden-size',
+        type=int,
+        default=64)
+    parser.add_argument(
+        '--activation',
+        type=str,
+        default='tanh')
+    parser.add_argument(
+        '--deterministic',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--action-activation',
+        type=str)
+    parser.add_argument(
         '--gail-batch-size',
         type=int,
         default=128,
@@ -37,6 +52,10 @@ def get_args(add_extra_args_fn=None, config=None):
         type=int,
         default=10,
         help='parallel limit')
+    parser.add_argument(
+        '--load-dvd-weights-dir',
+        type=str
+    )
     parser.add_argument(
         '--train-in-turn',
         dest='train_in_turn',
@@ -93,6 +112,15 @@ def get_args(add_extra_args_fn=None, config=None):
         action='store_true',
         default=False,
         help='collect trajectories for DIPG')
+    parser.add_argument(
+        '--use-rnd',
+        action='store_true',
+        default=False,
+        help='use rnd')
+    parser.add_argument(
+        '--rnd-alpha',
+        default=1.0,
+        type=float)
     parser.add_argument(
         '--dipg',
         action='store_true',

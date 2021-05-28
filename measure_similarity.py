@@ -3,6 +3,8 @@ import itertools
 import json
 import numpy as np
 
+from pathlib import Path
+
 from ma_main import run
 from a2c_ppo_acktr.arguments import get_args
 from a2c_ppo_acktr.multi_agent.utils import get_timestamp, make_env, mkdir
@@ -10,6 +12,10 @@ from a2c_ppo_acktr.multi_agent.utils import get_timestamp, make_env, mkdir
 
 def add_extra_args(parser):
     parser.add_argument('--load-dirs', nargs="*")
+    parser.add_argument('--all-load-dir')
+    parser.add_argument('--dvd', action='store_true', default=False)
+    parser.add_argument('--num-stages', type=int)
+    parser.add_argument('--max-policies', type=int)
     parser.add_argument('--list-num-refs', nargs="*", type=int)
     parser.add_argument('--load-steps', nargs="*")
     parser.add_argument('--test-steps', type=int)
@@ -43,6 +49,27 @@ def get_symmetry(sym_str):
     return sym_groups
 
 
+def load_all(load_dir, n_agents, max_policies):
+    load_dirs = []
+    load_steps = []
+    list_num_refs = []
+    for folder in os.listdir(load_dir):
+        try:
+            path = os.path.join(load_dir, folder)
+            _config = json.load(open(os.path.join(path, "config.json")))
+            # print(path)
+            load_dirs.append(path)
+            load_steps.append(None)
+            num_refs = 0 if not _config["use_reference"] else len(_config["likelihood_threshold"])
+            for j in range(n_agents):
+                list_num_refs.append(num_refs)
+            if len(load_dirs) == max_policies:
+                break
+        except NotADirectoryError:
+            pass
+    return load_dirs, load_steps, list_num_refs
+
+
 def main():
     args = get_args(add_extra_args)
 
@@ -59,13 +86,42 @@ def main():
     args.save_interval = 0
     args.train = False
     args.reject_sampling = False
+    args.load_dvd_weights_dir = None
     n_agents = args.num_agents
-    load_dirs = args.load_dirs
-    load_steps = args.load_steps
-    if load_steps is None:
-        load_steps = [None] * len(load_dirs)
+
+    if args.env_name in ["hopper", 'half-cheetah', 'walker2d']:
+        args.deterministic = True
+
+    load_dirs = []
+    load_steps = []
+    list_num_refs = []
+
+    if args.load_dirs is not None:
+        load_dirs += args.load_dirs
+        if args.load_steps is None:
+            load_steps += [None] * len(args.load_dirs)
+        else:
+            load_steps += args.load_steps
+        list_num_refs += args.list_num_refs
+
+    if args.all_load_dir is not None:
+        all_load_dir = args.all_load_dir
+        num_stages = args.num_stages
+        if num_stages is not None:
+            for i in range(num_stages):
+                stage_dir = os.path.join(all_load_dir, "stage-{}".format(i))
+                ld, ls, lnr = load_all(stage_dir, n_agents, None)
+                load_dirs += ld
+                load_steps += ls
+                list_num_refs += lnr
+        else:
+            ld, ls, lnr = load_all(all_load_dir, n_agents, args.max_policies)
+            load_dirs += ld
+            load_steps += ls
+            list_num_refs += lnr
+
     n_policies = len(load_dirs)
-    list_num_refs = np.array(args.list_num_refs).reshape(n_policies, n_agents).tolist()
+    list_num_refs = np.array(list_num_refs).reshape(n_policies, n_agents).tolist()
 
     # permutations = get_permutations(args.num_agents, args.symmetry)
     # n_perm = len(permutations)
@@ -130,6 +186,12 @@ def main():
 
     dir_matrix.dump("dir_matrix.obj")
     sim_matrix.dump("sim_matrix.obj")
+
+    if args.all_load_dir is not None:
+        dir_matrix.dump(os.path.join(args.all_load_dir, "dir_matrix.obj"))
+        sim_matrix.dump(os.path.join(args.all_load_dir, "sim_matrix.obj"))
+
+    # print(np.linalg.det(sim_matrix))
 
 
 if __name__ == "__main__":

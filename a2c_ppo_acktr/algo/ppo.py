@@ -79,10 +79,11 @@ class PPO():
         # advantages = rollouts.returns[:-1]
         num_refs = rollouts.num_refs
         num_value_refs = rollouts.num_value_refs
+        rnd = 1 if self.args.use_rnd else 0
         if num_refs == num_value_refs:
-            advantages = rollouts.returns[:-1, :, :1 + num_refs * 2] - rollouts.value_preds[:-1]
+            advantages = rollouts.returns[:-1, :, :1 + rnd + num_refs * 2] - rollouts.value_preds[:-1]
         else:
-            advantages = rollouts.returns[:-1, :, 0] - rollouts.value_preds[:-1, :, 0]
+            advantages = rollouts.returns[:-1, :, :1 + rnd] - rollouts.value_preds[:-1, :, :1 + rnd]
         # print(advantages.size())
         # print(advantages.mean(dim=[0, 1], keepdims=True).size())
         advantages = (advantages - advantages.mean(dim=[0, 1], keepdims=True)) / (
@@ -161,6 +162,7 @@ class PPO():
 
         value_loss_epoch = 0
         action_loss_epoch = 0
+        rnd_loss_epoch = 0
         dist_entropy_epoch = 0
         grad_norm_epoch = 0
         reward_prediction_loss_epoch = 0
@@ -273,6 +275,14 @@ class PPO():
                 # Reshape to do in a single forward pass for all steps
                 values, action_log_probs, dist_entropy_all, _, dists = self.actor_critic.evaluate_actions(
                     obs_batch, recurrent_hidden_states_batch, masks_batch, actions_batch)
+
+                if self.args.use_rnd:
+                    _, rnd_values, rnd_predictions = self.actor_critic.get_reward_prediction(
+                        obs_batch, recurrent_hidden_states_batch, masks_batch, actions_batch
+                    )
+                    rnd_loss = ((rnd_values - rnd_predictions).pow(2).sum(-1) / 2).mean()
+                else:
+                    rnd_loss = torch.tensor(0.0)
 
                 # probs = self.actor_critic.get_strategy(obs_batch, recurrent_hidden_states_batch, masks_batch)
                 #
@@ -567,7 +577,9 @@ class PPO():
                     # print(interpolate_mask[0])
                     # print(interpolate_mask[:, 0].sum())
                     # print((action_loss_all[:, 0].detach() - _action_loss_all.detach()).square().sum())
-                    action_loss_all = _action_loss_all
+                    weight = max(interpolate_mask.sum().item(), 1)
+                    # print(action_loss_all.size()[0], weight)
+                    action_loss_all = _action_loss_all * (action_loss_all.size()[0] / weight)
 
                 reward_prediction_loss = torch.tensor(0.)
 
@@ -584,16 +596,18 @@ class PPO():
                 if self.task is None:
                     action_loss_mask = 1.
 
+                    if self.args.use_reward_predictor:
+                        self.reward_optimizer.zero_grad()
+                        (reward_prediction_loss * self.reward_prediction_loss_coef).backward()
                     self.optimizer.zero_grad()
-                    self.reward_optimizer.zero_grad()
                     # self.value_loss_coef = 0.
                     loss = value_loss * self.value_loss_coef + rollouts.action_loss_coef * action_loss_mask * \
                            action_loss - dist_entropy * self.entropy_coef
                     if dipg:
                         loss += dipg_loss * self.args.dipg_alpha
+                    if self.args.use_rnd:
+                        loss += rnd_loss
                     loss.backward()
-                    if self.args.use_reward_predictor:
-                        (reward_prediction_loss * self.reward_prediction_loss_coef).backward()
 
                     total_norm = 0.
                     for name, p in self.actor_critic.named_parameters():
@@ -627,6 +641,7 @@ class PPO():
 
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
+                rnd_loss_epoch += rnd_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
                 reward_prediction_loss_epoch += reward_prediction_loss.item()
 
@@ -770,6 +785,7 @@ class PPO():
 
         value_loss_epoch /= num_updates
         action_loss_epoch /= num_updates
+        rnd_loss_epoch /= num_updates
         dist_entropy_epoch /= num_updates
         grad_norm_epoch /= num_updates
         reward_prediction_loss_epoch /= num_updates
@@ -781,4 +797,4 @@ class PPO():
 
         # print(time.time() - st)
 
-        return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, grad_norm_epoch, reward_prediction_loss_epoch
+        return value_loss_epoch, action_loss_epoch, rnd_loss_epoch, dist_entropy_epoch, grad_norm_epoch, reward_prediction_loss_epoch

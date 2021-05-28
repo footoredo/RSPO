@@ -42,6 +42,9 @@ total_gather_count = np.zeros((5, 5), dtype=int)
 
 simple_more_hard_rewards = []
 
+escalation_coop_cnt = np.zeros(50, dtype=int)
+escalation_coop_lengths = []
+
 
 for folder in sorted(Path(os.path.abspath(DIR)).iterdir(), key=os.path.getmtime):
     try:
@@ -54,8 +57,12 @@ for folder in sorted(Path(os.path.abspath(DIR)).iterdir(), key=os.path.getmtime)
         config = json.load(open(config_path))
         print(folder)
         print(config["seed"], config["num_steps"], config["train_in_turn"])
+        print(config["env_config"])
         print(f'rewards: {statistics["rewards"]}')
-        show_play_statistics(config["env_name"], statistics, config["episode_steps"])
+        returns = show_play_statistics(config["env_name"], statistics, config["episode_steps"])
+        if config["env_name"] == "escalation-gw":
+            escalation_coop_cnt[returns["max_coop"]] += 1
+            escalation_coop_lengths.append(returns["max_coop"])
 
         if config["env_name"] == "simple-more" and config["env_config"].endswith("-hard.json"):
             cnt = statistics["reach_cnt"]
@@ -106,6 +113,10 @@ for folder in sorted(Path(os.path.abspath(DIR)).iterdir(), key=os.path.getmtime)
 if env == "stag-hunt-gw":
     print("Total")
     print(total_gather_count)
+
+if env == "escalation-gw":
+    print(escalation_coop_cnt)
+    print(escalation_coop_lengths)
 
 if len(simple_more_hard_rewards) > 0:
     print(simple_more_hard_rewards)

@@ -35,6 +35,7 @@ def dipg_ker(d, width=1.):
 
 
 def show_play_statistics(env_name, statistics, episode_steps=None):
+    returns = {}
     try:
         np.set_printoptions(precision=3, suppress=True)
         keys = []
@@ -44,14 +45,18 @@ def show_play_statistics(env_name, statistics, episode_steps=None):
             keys = ["gather_count"]
         elif env_name == "escalation-gw":
             max_step = 0
+            max_coop = 0
             for i in reversed(range(episode_steps)):
                 if statistics["cnt_after_meeting"][i] > 0:
                     max_step = i + 1
                     break
             for i in range(max_step):
+                if statistics["cnt_after_meeting"][i] > 75:
+                    max_coop = i + 1
                 print(i + 1, "\t", statistics["cnt_after_meeting"][i], "\t",
                       statistics["actions_after_meeting"][i][0],
                       statistics["actions_after_meeting"][i][1])
+            returns["max_coop"] = max_coop
         elif env_name == "simple-key":
             keys = ["reach_1", "reach_key", "reach_2"]
         elif env_name == "prisoners-dilemma":
@@ -76,6 +81,7 @@ def show_play_statistics(env_name, statistics, episode_steps=None):
     except KeyError:
         pass
 
+    return returns
 
 def get_action_size(action_space, in_buffer=False):
     if action_space.__class__.__name__ == "Discrete":
@@ -137,20 +143,20 @@ def get_ssh():
 
     ssh = SSHClient()
     ssh.load_system_host_keys()
-    ssh.connect(ssh_config["hostname"][which], username=ssh_config["username"],
+    ssh.connect(ssh_config["hostname"][which], username=ssh_config["username"][which],
                 key_filename=ssh_config["key_filename"], port=ssh_config["port"][which])
 
     SSH = ssh
-    return ssh
+    return ssh, which
 
 
 def get_remote_file(filename):
     from scp import SCPClient, SCPException
 
-    ssh = get_ssh()
+    ssh, which = get_ssh()
 
     ssh_config = CONFIDENTIAL["ssh"]
-    home_dir = ssh_config["remote_home_dir"]
+    home_dir = ssh_config["remote_home_dir"][which]
     tmp_dir = "/tmp/get_remote"
 
     local_path = os.path.join(tmp_dir, get_timestamp())
@@ -168,10 +174,10 @@ def get_remote_file(filename):
 def remote_listdir(path):
     import time
 
-    ssh = get_ssh()
+    ssh, which = get_ssh()
 
     ssh_config = CONFIDENTIAL["ssh"]
-    home_dir = ssh_config["remote_home_dir"]
+    home_dir = ssh_config["remote_home_dir"][which]
     remote_path = os.path.join(home_dir, path)
 
     stdin, stdout, stderr = ssh.exec_command(f"ls {remote_path}")
@@ -329,11 +335,15 @@ def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir,
         actor_critic = Policy(
             obs_space.shape,
             act_space,
+            action_activation=args.action_activation,
             base_kwargs={'recurrent': args.recurrent_policy,
                          'critic_dim': n_ref * 2 + 1,
                          'is_ref': is_ref,
                          'predict_reward': args.use_reward_predictor,
-                         'timestep_mask': args.use_timestep_mask})
+                         'timestep_mask': args.use_timestep_mask,
+                         "rnd": args.use_rnd,
+                         'hidden_size': args.hidden_size,
+                         'activation': args.activation})
         # if not is_ref:
         #     print("B")
     # print("actor critic got")

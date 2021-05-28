@@ -11,12 +11,12 @@ from a2c_ppo_acktr.multi_agent.utils import plot_statistics, plot_agent_statisti
 
 def plot_full(statistics, max_iter=None):
     plot_statistics(statistics, "reward", max_iter=max_iter)
-    plot_statistics(statistics, "reward_prediction_loss", max_iter=max_iter)
-    # plot_statistics(statistics, "efficiency", max_iter=max_iter)
-    plot_statistics(statistics, "grad_norm", max_iter=max_iter)
-    plot_statistics(statistics, "value_loss", max_iter=max_iter)
+    # plot_statistics(statistics, "reward_prediction_loss", max_iter=max_iter)
+    plot_statistics(statistics, "efficiency", max_iter=max_iter)
+    # plot_statistics(statistics, "grad_norm", max_iter=max_iter)
+    # plot_statistics(statistics, "value_loss", max_iter=max_iter)
     # plot_statistics(statistics, "action_loss", max_iter=max_iter)
-    plot_statistics(statistics, "dist_entropy", max_iter=max_iter)
+    # plot_statistics(statistics, "dist_entropy", max_iter=max_iter)
     # plot_statistics(statistics, "dist_penalty", max_iter=max_iter)
 
 
@@ -73,6 +73,6 @@ def plot_all(path, agent, remote):
 
 
 if __name__ == "__main__":
-    plot_single("./sync-results/escalation-gw-find-all/find-all-threshold/2021-05-24T01:18:11.627262#4c70/stage-0/2021-05-24T01:18:17.313485#5ed5",
+    plot_single("./sync-results/hopper-512-no-intrinsic/find-all-auto/2021-05-28T10:44:16.336475#28fc/stage-1/2021-05-28T10:57:20.507201#68a9",
                 "0", True, max_iter=None)
     # plot_all("./sync-results/escalation-gw/1-prediction-new-2", None, True)

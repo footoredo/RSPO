@@ -11,20 +11,21 @@ def _flatten_helper(T, N, _tensor):
 
 class RolloutStorage(object):
     def __init__(self, num_steps, num_processes, obs_shape, action_space,
-                 recurrent_hidden_state_size, num_refs=0, num_value_refs=0):
+                 recurrent_hidden_state_size, num_refs=0, num_value_refs=0, use_rnd=False):
         self.original_obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
         self.obs = torch.zeros(num_steps + 1, num_processes, *obs_shape)
         self.recurrent_hidden_states = torch.zeros(
             num_steps + 1, num_processes, recurrent_hidden_state_size)
         self.original_rewards = torch.zeros(num_steps, num_processes, 1)
-        self.rewards = torch.zeros(num_steps, num_processes, 1 + num_refs * 3)
+        self.rnd = 1 if use_rnd else 0
+        self.rewards = torch.zeros(num_steps, num_processes, 1 + num_refs * 3 + self.rnd)
         self.num_refs = num_refs
         self.num_value_refs = num_value_refs
-        self.value_preds = torch.zeros(num_steps + 1, num_processes, 1 + num_value_refs * 2)
-        self.returns = torch.zeros(num_steps + 1, num_processes, 1 + num_refs * 3)
+        self.value_preds = torch.zeros(num_steps + 1, num_processes, 1 + num_value_refs * 2 + self.rnd)
+        self.returns = torch.zeros(num_steps + 1, num_processes, 1 + num_refs * 3 + self.rnd)
         self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
         self.dice_deps = torch.zeros(num_steps, num_processes, 1)
-        self.interpolate_masks = torch.zeros(num_steps, num_processes, num_refs * 2 + 1)
+        self.interpolate_masks = torch.zeros(num_steps, num_processes, num_refs * 2 + 1 + self.rnd)
         self.mmds = torch.zeros(num_steps, num_processes, 1)
         self.action_loss_coef = 1.0
         if action_space.__class__.__name__ == 'Discrete':
@@ -56,7 +57,7 @@ class RolloutStorage(object):
         self.actions = self.actions.to(device)
         self.masks = self.masks.to(device)
         self.bad_masks = self.bad_masks.to(device)
-        self.mmds = self.bad_masks.to(mmds)
+        self.mmds = self.bad_masks.to(device)
 
     def insert(self, obs, original_obs, recurrent_hidden_states, actions, action_log_probs,
                value_preds, rewards, original_rewards, masks, bad_masks):
@@ -110,18 +111,21 @@ class RolloutStorage(object):
                       save_path=None, title="agent-{} ref-{}".format(agent_name, cni))
 
     # Call this after compute_returns
-    def compute_interpolate_masks(self, thresholds: torch.Tensor, alphas, use_filters):
+    def compute_interpolate_masks(self, thresholds: torch.Tensor, alphas, use_filters, use_rnd, rnd_alpha, full_intrinsic=False):
         # print(use_reward)
         shape = list(self.rewards.size()[:2])
         if self.num_refs == 0:
-            interpolate_masks = alphas[0] * torch.ones(shape + [1])
+            masks = [alphas[0] * torch.ones(shape + [1])]
+            if use_rnd:
+                masks.append(rnd_alpha * torch.ones(shape + [1]))
+            interpolate_masks = torch.cat(masks, dim=2)
         else:
             if not any(use_filters):
                 extrinsic_mask = torch.ones(shape + [1])
                 prediction_masks = torch.ones(shape + [self.num_refs])
                 exploration_masks = torch.ones(shape + [self.num_refs])
             else:
-                likelihoods = self.returns[:-1, :, 1 + self.num_refs * 2:]
+                likelihoods = self.returns[:-1, :, 1 + self.rnd + self.num_refs * 2:]
                 failed_mask = torch.gt(thresholds, likelihoods)
                 if use_filters[0]:
                     extrinsic_mask = 1. - (torch.any(failed_mask, dim=2, keepdim=True)).float()
@@ -138,8 +142,12 @@ class RolloutStorage(object):
 
             # print(extrinsic_mask.size(), prediction_masks.size(), exploration_masks.size())
             # print(self.num_refs, extrinsic_mask.size(), prediction_masks.size(), exploration_masks.size(), failed_mask.size(), self.returns.size())
-            interpolate_masks = torch.cat([alphas[0] * extrinsic_mask, alphas[1] * prediction_masks,
-                                           alphas[2] * exploration_masks], dim=2)
+            masks = [alphas[0] * extrinsic_mask]
+            if use_rnd:
+                masks.append(rnd_alpha * torch.ones(shape + [1]))
+            masks += [alphas[1] * prediction_masks, alphas[2] * exploration_masks]
+            print("eff:", extrinsic_mask.mean())
+            interpolate_masks = torch.cat(masks, dim=2)
         # print(interpolate_masks.size(), interpolate_masks[0, 0], self.rewards[0, 0])
         # print(interpolate_masks.size(), self.interpolate_masks.size())
         # print(interpolate_masks)
@@ -155,6 +163,8 @@ class RolloutStorage(object):
         # assert not use_proper_time_limits, "Not Implemented"
         gamma2 = likelihood_gamma
         num_refs = self.num_refs
+
+        rnd = self.rnd
 
         if False:
             if use_gae:
@@ -185,18 +195,18 @@ class RolloutStorage(object):
                 for step in reversed(range(self.rewards.size(0))):
                     # print(self.rewards.size(), self.value_preds.size())
                     if num_refs == num_value_refs:
-                        delta = self.rewards[step, :, :1 + num_refs * 2] + \
-                                gamma * self.value_preds[step + 1, :, :1 + num_refs * 2] * self.masks[step + 1] - \
-                                self.value_preds[step, :, :1 + num_refs * 2]
+                        delta = self.rewards[step, :, :1 + rnd + num_refs * 2] + \
+                                gamma * self.value_preds[step + 1, :, :1 + rnd + num_refs * 2] * self.masks[step + 1] - \
+                                self.value_preds[step, :, :1 + rnd + num_refs * 2]
                     else:
-                        delta = self.rewards[step, :, :1 + num_refs * 2]
+                        delta = self.rewards[step, :, :1 + rnd + num_refs * 2]
                     gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
                     if use_proper_time_limits:
                         gae = gae * self.bad_masks[step + 1]
                     if num_refs == num_value_refs:
-                        self.returns[step, :, :1 + num_refs * 2] = gae + self.value_preds[step]
+                        self.returns[step, :, :1 + rnd + num_refs * 2] = gae + self.value_preds[step]
                     else:
-                        self.returns[step, :, :1 + num_refs * 2] = gae
+                        self.returns[step, :, :1 + rnd + num_refs * 2] = gae
 
                     # delta = self.rewards[step, :, :1] + \
                     #         gamma * self.value_preds[step + 1, :, :1] * self.masks[step + 1] - \
@@ -205,9 +215,9 @@ class RolloutStorage(object):
                     # self.returns[step, :, :1] = gae + self.value_preds[step, :, :1]
                     # self.returns[step, :, 1:1 + num_refs] = self.rewards[step, :, 1:1 + num_refs]
 
-                    self.returns[step, :, 1 + num_refs * 2:] = \
-                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs * 2:], self.masks[step + 1]) + \
-                        self.rewards[step, :, 1 + num_refs * 2:]
+                    self.returns[step, :, 1 + rnd + num_refs * 2:] = \
+                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + rnd + num_refs * 2:], self.masks[step + 1]) + \
+                        self.rewards[step, :, 1 + rnd + num_refs * 2:]
             else:
                 if use_proper_time_limits:
                     raise NotImplementedError
@@ -216,9 +226,9 @@ class RolloutStorage(object):
                 # self.returns[-1] = next_value
                 self.returns[-1].zero_()
                 if num_refs == self.num_value_refs:
-                    self.returns[-1, :, :1 + num_refs * 2] = next_value[:, :1 + num_refs * 2]
+                    self.returns[-1, :, :1 + rnd + num_refs * 2] = next_value[:, :1 + rnd + num_refs * 2]
                 else:
-                    self.returns[-1, :, 0] = next_value[:, 0]
+                    self.returns[-1, :, :1 + rnd] = next_value[:, :1 + rnd]
                 # print(next_value, self.rewards[-1])
                 # print(self.rewards.size(0))
                 for step in reversed(range(self.rewards.size()[0])):
@@ -230,12 +240,12 @@ class RolloutStorage(object):
                     # print(torch.square(self.rewards[step, :, 1:] - self.returns[step, :, 0]).size())
                     # print(torch.mul(self.returns[step + 1, :, 1:], self.masks[step + 1]).size())
                     # print(torch.mul(self.returns[step + 1], self.masks[step + 1]).size())
-                    self.returns[step, :, :1 + num_refs * 2] = \
-                        gamma * torch.mul(self.returns[step + 1, :, :1 + num_refs * 2], self.masks[step + 1]) + \
-                        self.rewards[step, :, :1 + num_refs * 2]
-                    self.returns[step, :, 1 + num_refs * 2:] = \
-                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + num_refs * 2:], self.masks[step + 1]) + \
-                        self.rewards[step, :, 1 + num_refs * 2:]
+                    self.returns[step, :, :1 + rnd+ num_refs * 2] = \
+                        gamma * torch.mul(self.returns[step + 1, :, :1 + rnd + num_refs * 2], self.masks[step + 1]) + \
+                        self.rewards[step, :, :1 + rnd + num_refs * 2]
+                    self.returns[step, :, 1 + rnd + num_refs * 2:] = \
+                        gamma2 * torch.mul(self.returns[step + 1, :, 1 + rnd + num_refs * 2:], self.masks[step + 1]) + \
+                        self.rewards[step, :, 1 + rnd + num_refs * 2:]
                     # self.returns[step, :, 1:] = torch.square(
                     #     self.rewards[step, :, 1:] - self.returns[step, :, :1]) + gamma2 * torch.mul(
                     #     self.returns[step + 1, :, 1:], self.masks[step + 1])
@@ -244,9 +254,9 @@ class RolloutStorage(object):
                     #     print(self.returns[step])
             if num_refs > 0:
                 for step in range(1, self.rewards.size()[0]):
-                    self.returns[step, :, 1 + num_refs * 2:] = \
-                        self.returns[step - 1, :, 1 + num_refs * 2:] * self.masks[step] + \
-                        self.returns[step, :, 1 + num_refs * 2:] * (1 - self.masks[step])
+                    self.returns[step, :, 1 + rnd + num_refs * 2:] = \
+                        self.returns[step - 1, :, 1 + rnd + num_refs * 2:] * self.masks[step] + \
+                        self.returns[step, :, 1 + rnd + num_refs * 2:] * (1 - self.masks[step])
         # if dice_lambda is not None:
         #     self.compute_dice_deps(dice_lambda)
 

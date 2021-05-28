@@ -17,6 +17,8 @@ do
   config_file=`python generate_timestamp.py`
   cp $project_dir/stage-$i/config.json ./configs/$config_file.json
   ./scripts/run_batch.sh run_config.sh $num_runs $config_file > /dev/null 2> /dev/null
+#  ./scripts/run_batch.sh run_config.sh $num_runs $config_file
+  echo done
   rm ./configs/$config_file.json
   for dir in `ls -d $project_dir/stage-$i/*/`
   do

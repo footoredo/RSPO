@@ -282,6 +282,7 @@ class Agent(mp.Process):
         # print(self.num_updates)
         likelihood_rms = RunningMeanStd(shape=sample_n_ref)
         reward_prediction_rms = RunningMeanStd(shape=sample_n_ref)
+        rnd_rms = RunningMeanStd(shape=())
         # self.log("13123123")
         agent.ref_agent = self.reference_agent
         # print(self.num_steps)
@@ -297,6 +298,11 @@ class Agent(mp.Process):
             # print(obs_rms)
             self.log("Done.")
 
+        if args.load_dvd_weights_dir is not None:
+            print("loading dvd weights...")
+            actor_critic.load_DvD_weight(args.load_dvd_weights_dir)
+            self.obs_rms = None
+
         episode_steps = self.args.episode_steps
         num_envs = self.num_envs
         num_episodes = self.num_steps // episode_steps
@@ -304,12 +310,12 @@ class Agent(mp.Process):
         rollouts = RolloutStorage(episode_steps, num_envs,
                                   self.obs_space.shape, self.act_space,
                                   actor_critic.recurrent_hidden_state_size,
-                                  num_refs=sample_n_ref, num_value_refs=n_ref)
+                                  num_refs=sample_n_ref, num_value_refs=n_ref, use_rnd=args.use_rnd)
 
         valid_rollouts = RolloutStorage(self.num_steps, num_envs,
                                         self.obs_space.shape, self.act_space,
                                         actor_critic.recurrent_hidden_state_size,
-                                        num_refs=sample_n_ref, num_value_refs=n_ref)
+                                        num_refs=sample_n_ref, num_value_refs=n_ref, use_rnd=args.use_rnd)
 
         self.main_conn.recv()
 
@@ -320,7 +326,7 @@ class Agent(mp.Process):
 
         observations = [[[] for _ in range(num_episodes)] for _ in range(num_envs)]
 
-        statistics = dict(reward=[], grad_norm=[], value_loss=[], action_loss=[], dist_entropy=[], dist_penalty=[],
+        statistics = dict(reward=[], grad_norm=[], value_loss=[], action_loss=[], rnd_loss=[], dist_entropy=[], dist_penalty=[],
                           likelihood=[], total_episodes=[], accepted_episodes=[], efficiency=[], reward_prediction_loss=[])
         sum_reward = 0.
         sum_dist_penalty = 0.
@@ -355,6 +361,7 @@ class Agent(mp.Process):
         action_repr = get_action_repr_fn(self.act_space)
 
         dipg_g = None
+        rnd_size = 1 if args.use_rnd else 0
 
         for it in range(self.num_updates):
             if args.use_linear_lr_decay:
@@ -413,7 +420,7 @@ class Agent(mp.Process):
                     with torch.no_grad():
                         value, action, action_log_prob, recurrent_hidden_states = cur_agent.act(
                             rollouts.obs[step], rollouts.recurrent_hidden_states[step],
-                            rollouts.masks[step])
+                            rollouts.masks[step], deterministic=args.deterministic)
                         # size = tuple(action.size())
                         # int_type = action.dtype
                         # random_action = torch.tensor(np_random.randint(self.act_space.n, size=size), dtype=int_type)
@@ -518,7 +525,7 @@ class Agent(mp.Process):
                         # print(sum_likelihood_capped)
                         # _reward = torch.cat([reward, t_dis * 0.01, t_dis], dim=1)
                         # _reward[:, 0] += args.likelihood_alpha * (sum_likelihood_capped - old_sum_likelihood_capped).mean(axis=1)
-                        _reward = torch.cat([normalized_reward, torch.zeros(num_envs, sample_n_ref * 3)], dim=1)
+                        _reward = torch.cat([normalized_reward, torch.zeros(num_envs, sample_n_ref * 3 + rnd_size)], dim=1)
                     ref_time += time.time() - st
 
                     # print(reward)
@@ -587,7 +594,7 @@ class Agent(mp.Process):
                         t_dis = t_dis.clamp(max=args.likelihood_cap)
                     t_dis = t_dis.transpose(0, 2).transpose(1, 3).reshape(episode_steps, num_envs, len(ref_agents) * num_sym).detach().numpy()
                     t_dis_ret = np.zeros((num_envs, sample_n_ref))
-                    for i in range(episode_steps):
+                    for i in reversed(range(episode_steps)):
                         t_dis_ret = t_dis_ret * args.likelihood_gamma + t_dis[i]
                     # likelihood_rms.update(t_dis_ret)
                     likelihood_rms.update(t_dis.reshape(-1, sample_n_ref))
@@ -603,6 +610,16 @@ class Agent(mp.Process):
                     #     normalized_t_dis_ret = normalized_t_dis_ret * args.likelihood_gamma + normalized_t_dis[i]
                     # print(t_dis)
                     # [step, env, ref * sym]
+                    if args.use_rnd:
+                        _, rnd_values, rnd_predictions = actor_critic.get_reward_prediction(obs, None, None, actions)
+                        rnd_errors = (rnd_values.detach() - rnd_predictions.detach()).pow(2).sum(-1) / 2
+                        rnd_error_ret = np.zeros(num_envs)
+                        for i in reversed(range(episode_steps)):
+                            rnd_error_ret = rnd_error_ret * args.gamma + rnd_errors[i].detach().numpy()
+                        rnd_rms.update(rnd_error_ret)
+                        rnd_errors /= np.sqrt(rnd_rms.var)
+                    else:
+                        rnd_errors = 0.
                     if args.use_reward_predictor:
                         with torch.no_grad():
                             next_value = actor_critic.get_value(
@@ -652,9 +669,11 @@ class Agent(mp.Process):
                         # for i, j in ijs:
                         #     print("after", valid_rollouts.rewards[step + i, j, 0])
                     # print(reward_prediction_reward)
-                    valid_rollouts.rewards[step: step + episode_steps, :, 1: sample_n_ref + 1] = reward_prediction_reward
-                    valid_rollouts.rewards[step: step + episode_steps, :, sample_n_ref + 1: sample_n_ref * 2 + 1] = ts(normalized_t_dis)
-                    valid_rollouts.rewards[step: step + episode_steps, :, sample_n_ref * 2 + 1:] = ts(t_dis)
+                    if args.use_rnd:
+                        valid_rollouts.rewards[step: step + episode_steps, :, 1] = rnd_errors
+                    valid_rollouts.rewards[step: step + episode_steps, :, 1 + rnd_size: sample_n_ref + 1] = reward_prediction_reward
+                    valid_rollouts.rewards[step: step + episode_steps, :, sample_n_ref + 1 + rnd_size: sample_n_ref * 2 + 1] = ts(normalized_t_dis)
+                    valid_rollouts.rewards[step: step + episode_steps, :, sample_n_ref * 2 + 1 + rnd_size:] = ts(t_dis)
 
                     sum_likelihood += t_dis_ret.sum(axis=0)
 
@@ -678,6 +697,7 @@ class Agent(mp.Process):
                         # print(sl, likelihood_threshold)
                     else:
                         accepted_episodes += 1
+                # print("sss:", t_dis_ret[0])
                 copy_time += time.time() - st
                 if actual_use_ref:
                     sum_likelihood_capped.fill(0.)
@@ -741,7 +761,7 @@ class Agent(mp.Process):
                     tg = np.matmul(trajectories, dipg_g)
                     num_samples = args.dipg_num_samples
                     for i in range(n):
-                        tpi = np.random.choice(n, num_samples, replace=False)
+                        tpi = np.random.choice(n, min(n, num_samples), replace=False)
                         ker_p = dipg_ker(tg[i] - tg[tpi])
                         ker_q = np.zeros(len(ref_agents))
                         for j, ref_agent in enumerate(ref_agents):
@@ -766,6 +786,7 @@ class Agent(mp.Process):
 
                 valid_rollouts.compute_returns(next_value, args.use_gae, args.gamma,
                                                args.gae_lambda, args.likelihood_gamma, args.use_proper_time_limits)
+                # print("computed:", valid_rollouts.returns[0, 0, 1 + sample_n_ref * 2:])
                 if args.interpolate_rewards:
                     if args.no_exploration_rewards:
                         exploration_rewards = False
@@ -815,18 +836,22 @@ class Agent(mp.Process):
                         alphas = [1., 0., 0.]
                         use_filters = [False, False, False]
 
-                    valid_rollouts.compute_interpolate_masks(threshold, alphas, use_filters)
+                    if args.full_intrinsic:
+                        alphas = [1., args.prediction_reward_alpha, args.exploration_reward_alpha]
+                        use_filters = [False, False, False]
+
+                    valid_rollouts.compute_interpolate_masks(threshold, alphas, use_filters, args.use_rnd, args.rnd_alpha)
                 # self.log("ready to update")
                 # valid_rollouts.action_loss_coef = 0.0 if efficiency < 0.1 else 1.0
                 # self.log("before update")
-                value_loss, action_loss, dist_entropy, grad_norm, reward_prediction_loss = agent.update(valid_rollouts)
+                value_loss, action_loss, rnd_loss, dist_entropy, grad_norm, reward_prediction_loss = agent.update(valid_rollouts)
                 update_time = time.time() - st
                 self.log("update time {}".format(update_time))
                 report_data["update_time"] = update_time
-                self.log("Update #{}, reward {}, likelihood {}, value_loss {}, action_loss {}, dist_entropy {}, grad_norm {}, reward_prediction_loss {}"
+                self.log("Update #{}, reward {}, likelihood {}, value_loss {}, action_loss {}, rnd_loss {}, dist_entropy {}, grad_norm {}, reward_prediction_loss {}"
                          .format(it, sum_reward / total_episodes,
                                  sum_likelihood / total_episodes,
-                                 value_loss, action_loss, dist_entropy, grad_norm, reward_prediction_loss))
+                                 value_loss, action_loss, rnd_loss, dist_entropy, grad_norm, reward_prediction_loss))
                 episode_rewards.append(sum_reward / total_episodes)
                 if len(episode_rewards) > 1:
                     self.log("mean/median reward {:.2f}/{:.2f}, min/max reward {:.2f}/{:.2f}".format(
@@ -835,6 +860,7 @@ class Agent(mp.Process):
                     ))
                 statistics["value_loss"].append((it, value_loss))
                 statistics["action_loss"].append((it, action_loss))
+                statistics["rnd_loss"].append((it, rnd_loss))
                 statistics["dist_entropy"].append((it, dist_entropy))
                 statistics["grad_norm"].append((it, grad_norm))
                 statistics["reward_prediction_loss"].append((it, reward_prediction_loss))
@@ -887,7 +913,10 @@ class Agent(mp.Process):
         # for ref in ref_processes:
         #     ref.join()
 
-        torch.save((actor_critic.state_dict(), self.obs_rms), os.path.join(self.save_dir, "model.obj"))
+        obs_rms = self.obs_rms
+        if actor_critic.obs_rms is not None:
+            obs_rms = actor_critic.obs_rms
+        torch.save((actor_critic.state_dict(), obs_rms), os.path.join(self.save_dir, "model.obj"))
 
         if args.collect_trajectories:
             trajectories = np.concatenate(trajectories, axis=0)
@@ -970,6 +999,7 @@ class Agent(mp.Process):
                 #     else:
                 #         action = 4
                 strategy = actor_critic.get_strategy(ts([obs]), recurrent_hidden_states, ts([[0.0] if done else [1.0]]))
+                strategy.likelihoods(strategy.sample())
                 # print(strategy)
                 if isinstance(strategy, FixedCategorical):
                     strategy = FixedCategorical(logits=strategy.logits[0].detach())
