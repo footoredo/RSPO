@@ -554,9 +554,10 @@ def _run(args, logger):
                     # input()
                     time.sleep(0.1)
             elif args.gif:
-                image = env.render(mode='rgb_array')
-                # print(image)
-                images.append(image)
+                if env.steps % 1 == 0:
+                    image = env.render(mode='rgb_array')
+                    # print(image)
+                    images.append(image)
 
             not_done = False
             for agent in env.agents:

@@ -73,6 +73,6 @@ def plot_all(path, agent, remote):
 
 
 if __name__ == "__main__":
-    plot_single("./sync-results/hopper-512-no-intrinsic/find-all-auto/2021-05-28T10:44:16.336475#28fc/stage-1/2021-05-28T10:57:20.507201#68a9",
-                "0", True, max_iter=None)
+    plot_single("./sync-results/stag-hunt-gw-aggressive/find-all-auto/2021-06-03T10:42:56.808212#f356/stage-1/2021-06-03T10:48:36.970749#b1f8",
+                "0", False, max_iter=None)
     # plot_all("./sync-results/escalation-gw/1-prediction-new-2", None, True)

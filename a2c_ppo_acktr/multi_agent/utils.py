@@ -139,7 +139,7 @@ def get_ssh():
 
     ssh_config = CONFIDENTIAL["ssh"]
 
-    which = "remote"
+    which = "local"
 
     ssh = SSHClient()
     ssh.load_system_host_keys()
