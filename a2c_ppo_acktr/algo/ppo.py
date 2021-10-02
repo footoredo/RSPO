@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torch.distributed as dist
 import numpy as np
 import time
 from a2c_ppo_acktr.multi_agent.utils import flat_view, net_add, ggrad, tsne, cluster, barred_argmax, \
@@ -14,6 +15,43 @@ DX = [-1., 1., 0., 0.]
 DY = [0., 0., -1., 1.]
 
 
+def rbf_kernel(x, y, l):
+    # return (-(x - y).square().mean() * 512 * l / 30 / 30).exp()
+    return (-(x - y).square().mean()).exp()
+
+
+def getcofactor(m, i, j):
+    return [row[:j] + row[j + 1:] for row in (m[:i] + m[i + 1:])]
+
+
+def determinantOfMatrix(mat):
+    # if given matrix is of order
+    # 2*2 then simply return det
+    # value by cross multiplying
+    # elements of matrix.
+    if (len(mat) == 2):
+        value = mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1]
+        return value
+    # initialize Sum to zero
+    Sum = 0
+    # loop to traverse each column
+    # of matrix a.
+    for current_column in range(len(mat)):
+        # calculating the sign corresponding
+        # to co-factor of that sub matrix.
+        sign = (-1)**(current_column)
+        # calling the function recursily to
+        # get determinant value of
+        # sub matrix obtained.
+        sub_det = determinantOfMatrix(getcofactor(mat, 0, current_column))
+        # adding the calculated determinant
+        # value of particular column
+        # matrix to total Sum.
+        Sum += (sign * mat[0][current_column] * sub_det)
+    # returning the final Sum
+    return Sum
+
+
 class PPO():
     def __init__(self,
                  agent_name,
@@ -23,6 +61,7 @@ class PPO():
                  num_mini_batch,
                  value_loss_coef,
                  entropy_coef,
+                 dvd_coef=0.0,
                  lr=None,
                  eps=None,
                  max_grad_norm=None,
@@ -32,7 +71,8 @@ class PPO():
                  direction=None,
                  save_dir=None,
                  args=None,
-                 is_ref=False):
+                 is_ref=False,
+                 agent_group=None):
 
         self.agent_name = agent_name
         self.actor_critic = actor_critic
@@ -46,6 +86,7 @@ class PPO():
 
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
+        self.dvd_coef = dvd_coef
         self.reward_prediction_loss_coef = args.reward_prediction_loss_coef
         # print(self.reward_prediction_loss_coef)
 
@@ -69,11 +110,12 @@ class PPO():
         self.args = args
 
         self.save_dir = mkdir2(save_dir, "ppo") if save_dir is not None and not is_ref else None
+        self.agent_group = agent_group
 
         # if not is_ref:
         #     print("PPO")
 
-    def update(self, rollouts):
+    def update(self, rollouts, all_obs, i_copy):
         # st = time.time()
         self.cnt += 1
         # advantages = rollouts.returns[:-1]
@@ -166,6 +208,8 @@ class PPO():
         dist_entropy_epoch = 0
         grad_norm_epoch = 0
         reward_prediction_loss_epoch = 0
+        dvd_loss_epoch = 0
+        pd_epoch = 0
 
         cnt = [0, 0]
 
@@ -237,9 +281,12 @@ class PPO():
 
                 obs_batch, recurrent_hidden_states_batch, actions_batch, \
                    value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
-                        adv_targ, interpolate_masks_batch, rewards_batch, mmds_batch = sample
+                        adv_targ, interpolate_masks_batch, rewards_batch, mmds_batch, indices = sample
 
                 batch_size = masks_batch.view(-1).size()[0]
+                all_obs_batch = all_obs[:, indices]
+                # print(all_obs_batch[i_copy, 0])
+                # print(obs_batch[0])
                 half_batch_size = batch_size // 2
 
                 # for z in range(batch_size // 32):
@@ -607,6 +654,53 @@ class PPO():
                         loss += dipg_loss * self.args.dipg_alpha
                     if self.args.use_rnd:
                         loss += rnd_loss
+
+                    if all_obs_batch.shape[0] > 1:
+                        num_copies = all_obs_batch.shape[0]
+                        obs_len = all_obs_batch.shape[-1]
+                        act_len = actions_batch.size()[-1]
+                        # print(act_len, "act_len")
+                        all_action_embedding = self.actor_critic.get_embedding(torch.tensor(all_obs_batch, dtype=torch.float).resize(
+                            num_copies * batch_size, obs_len), None, None)  # num_copies * batch_size, num_actions
+                        action_embeddings = [torch.zeros_like(all_action_embedding) for _ in range(num_copies)]
+                        dist.all_gather(action_embeddings, all_action_embedding, group=self.agent_group)
+                        for i, tensor in enumerate(action_embeddings):
+                            action_embeddings[i] = tensor[batch_size * i_copy: batch_size * (i_copy + 1)]
+                            if i != i_copy:
+                                action_embeddings[i] = action_embeddings[i].detach()
+                        # num_copies, batch_size, num_actions
+
+                        if self.args.pbt_metric == "dvd":
+                            # continuous action space only
+                            rbf_matrix = [[0 for _ in range(num_copies)] for _ in range(num_copies)]
+                            matrix = torch.zeros((num_copies, num_copies), dtype=torch.float32)
+                            for i in range(num_copies):
+                                for j in range(num_copies):
+                                    d = rbf_kernel(action_embeddings[i], action_embeddings[j], act_len)
+                                    rbf_matrix[i][j] = rbf_matrix[j][i] = d
+                                    # print(i, j, (tensor_list[i] - tensor_list[j]).square().mean().item() * 512 * act_len)
+                                    matrix[i, j] = matrix[j, i] = d.item()
+                            pd = determinantOfMatrix(rbf_matrix)
+                            # print('population diversity: {:.4f}'.format(pd.item()))
+
+                            loss -= self.dvd_coef * pd.log()
+
+                            pd_epoch += pd.detach().item()
+                            dvd_loss_epoch -= pd.log().detach().item()
+
+                        elif self.args.pbt_metric == "ce":
+                            # discrete action space only
+                            sum_log_probs = torch.zeros(batch_size, 1)
+                            for i in range(num_copies):
+                                if i != i_copy:
+                                    probs = torch.gather(action_embeddings[i], dim=1, index=actions_batch)
+                                    log_probs = torch.log(probs)
+                                    sum_log_probs += log_probs  # to minimize
+
+                            ce_loss = (action_log_probs * sum_log_probs / num_copies).mean()
+                            loss += self.dvd_coef * ce_loss
+                            dvd_loss_epoch += ce_loss.detach().item()
+
                     loss.backward()
 
                     total_norm = 0.
@@ -789,6 +883,8 @@ class PPO():
         dist_entropy_epoch /= num_updates
         grad_norm_epoch /= num_updates
         reward_prediction_loss_epoch /= num_updates
+        dvd_loss_epoch /= num_updates
+        pd_epoch /= num_updates
 
         # print(fgs[-1])
 
@@ -797,4 +893,5 @@ class PPO():
 
         # print(time.time() - st)
 
-        return value_loss_epoch, action_loss_epoch, rnd_loss_epoch, dist_entropy_epoch, grad_norm_epoch, reward_prediction_loss_epoch
+        return value_loss_epoch, action_loss_epoch, rnd_loss_epoch, dist_entropy_epoch, grad_norm_epoch, \
+               reward_prediction_loss_epoch, dvd_loss_epoch, pd_epoch

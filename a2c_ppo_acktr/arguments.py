@@ -28,6 +28,16 @@ def get_args(add_extra_args_fn=None, config=None):
         default='./gail_experts',
         help='directory that contains expert demonstrations for gail')
     parser.add_argument(
+        '--num-copies',
+        type=int,
+        default=1)
+    parser.add_argument(
+        '--pbt-metric',
+        type=str,
+        default='dvd',
+        help='optimization objective when using PBT. (dvd / ce)'
+    )
+    parser.add_argument(
         '--hidden-size',
         type=int,
         default=64)
@@ -136,6 +146,10 @@ def get_args(add_extra_args_fn=None, config=None):
         default=32,
         type=int,
         help='DIPG num samples')
+    parser.add_argument(
+        '--dvd-coef',
+        default=0.0,
+        type=float)
     parser.add_argument(
         '--dipg-alpha',
         default=1.0,

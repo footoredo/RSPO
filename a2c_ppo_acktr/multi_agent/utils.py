@@ -195,7 +195,7 @@ def get_timestamp():
     return "{}#{}".format(datetime.now().isoformat(), binascii.hexlify(os.urandom(2)).decode())
 
 
-def make_env(env_name, steps, env_config=None):
+def make_single_env(env_name, steps, env_config=None):
     if steps is None:
         steps = 32
     env_config_file = env_config or f"./env-configs/{env_name}-default.json"
@@ -246,8 +246,22 @@ def make_env(env_name, steps, env_config=None):
     elif env_name == 'humanoid':
         from pettingzoo.mujoco import humanoid_v2
         return humanoid_v2.parallel_env(max_frames=steps, **env_config)
+    elif env_name == 'point':
+        from pettingzoo.mujoco import point_v0
+        return point_v0.parallel_env(max_frames=steps, **env_config)
     else:
         raise NotImplementedError(env_name)
+
+
+def make_env(env_name, steps, env_config=None, num_copies=None):
+    if num_copies is None:
+        return make_single_env(env_name, steps, env_config)
+    else:
+        # raise NotImplementedError
+        from _functools import partial
+        make_single_env_fn = partial(make_single_env, env_name, steps, env_config)
+        from pettingzoo.wrappers import population_training_wrapper
+        return population_training_wrapper.PopulationTrainingWrapper(make_single_env_fn, num_copies)
 
 
 def reseed(seed, phrase):
@@ -314,7 +328,7 @@ def load_actor_critic(actor_critic, load_dir, agent_name, load_step=None, load_t
     return obs_rms, trajectories
 
 
-def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir, n_ref=0, is_ref=False):
+def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir, n_ref=0, is_ref=False, agent_group=None):
     from a2c_ppo_acktr import algo
     from a2c_ppo_acktr.model import Policy, AttentionBase, LinearBase
 
@@ -368,6 +382,7 @@ def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir,
             args.num_mini_batch,
             args.value_loss_coef,
             args.entropy_coef,
+            dvd_coef=args.dvd_coef,
             lr=args.lr,
             eps=args.eps,
             max_grad_norm=args.max_grad_norm,
@@ -376,7 +391,8 @@ def get_agent(agent_name, args, obs_space, input_structure, act_space, save_dir,
             direction=args.direction,
             save_dir=save_dir,
             args=args,
-            is_ref=is_ref
+            is_ref=is_ref,
+            agent_group=agent_group
         )
     elif args.algo == 'acktr':
         agent = algo.A2C_ACKTR(
@@ -605,8 +621,8 @@ def mkdir(path):
     return path
 
 
-def mkdir2(path1, path2):
-    return mkdir(os.path.join(path1, path2))
+def mkdir2(*path):
+    return mkdir(os.path.join(*path))
 
 
 def ts(ar):

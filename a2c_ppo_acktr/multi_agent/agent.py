@@ -15,6 +15,8 @@ from argparse import Namespace
 
 from stable_baselines3.common.running_mean_std import RunningMeanStd
 
+import torch.distributed as dist
+
 from a2c_ppo_acktr.storage import RolloutStorage
 from a2c_ppo_acktr.distributions import FixedNormal, FixedCategorical
 from .utils import get_agent, release_all_locks, acquire_all_locks, mkdir2, load_actor_critic, ts, reseed, make_env, \
@@ -25,86 +27,12 @@ def true_func(n_iter):
     return True
 
 
-class RefAgent(mp.Process):
-    def __init__(self, agent, agent_id, ref_id, num_refs, num_actions, args: Namespace, obs_shm,
-                 buffer_start, buffer_end, ref_shm, obs_locks, act_locks, ref_locks):
-        super(RefAgent, self).__init__()
-        self.agent = agent
-        self.agent_id = agent_id
-        self.ref_id = ref_id
-        self.num_refs = num_refs
-        self.num_actions = num_actions
-
-        self.seed = reseed(args.seed, "agent-{}-ref-{}".format(self.agent_id, self.ref_id))
-        self.num_steps = args.num_steps
-        self.num_envs = args.num_processes
-        self.num_updates = args.num_env_steps // args.num_steps // args.num_processes
-        self.num_episodes = args.num_steps // args.episode_steps
-        self.episode_length = args.episode_steps
-
-        self.obs_shm = obs_shm
-        self.buffer_start = buffer_start
-        self.buffer_end = buffer_end
-        self.ref_shm = ref_shm
-        self.obs_locks = obs_locks
-        self.act_locks = act_locks
-        self.ref_locks = ref_locks
-
-        # print(len(self.obs_locks))
-
-        self.dtype = np.float32
-        item_size = np.zeros(1, dtype=self.dtype).nbytes
-        buffer_length = item_size * self.num_envs * num_actions
-        offset = buffer_length * self.ref_id
-        self.place = np.frombuffer(self.ref_shm.buf[offset: offset + buffer_length], dtype=self.dtype).reshape(
-            self.num_envs, self.num_actions)
-
-    def get_obs(self):
-        acquire_all_locks(self.obs_locks)
-        # print(1)
-        data = np.frombuffer(self.obs_shm.buf[self.buffer_start: self.buffer_end], dtype=self.dtype).reshape(
-            self.num_envs, -1)
-        obs = data[:, :-4]
-        reward = data[:, -4:-3]
-        normalized_reward = data[:, -3:-2]
-        done = data[:, -2:-1]
-        bad_mask = data[:, -1:]
-        # if any(reward > 0.):
-        #     print(data, obs, reward)
-        # self.log("release obs locks")
-        # release_all_locks(self.obs_locks)
-        return ts(obs), ts(reward), ts(normalized_reward), ts(done), ts(bad_mask)
-
-    def write(self, probs):
-        # num_envs * float
-        probs = probs.numpy()
-        assert probs.dtype == np.float32
-        np.copyto(self.place, probs)
-
-    def run(self):
-        torch.set_num_threads(1)
-        np_random = np.random.RandomState(self.seed)
-        for i in range(self.num_updates):
-            if self.ref_id == 0:
-                print("update", i)
-            for j in range(self.num_episodes):
-                obs, _, _, _, _ = self.get_obs()
-                for k in range(self.episode_length):
-                    # print(k)
-                    probs = self.agent.get_strategy(obs, None, None).detach()
-                    release_all_locks(self.act_locks)
-                    # print(probs)
-                    self.write(probs)
-                    release_all_locks(self.ref_locks)
-                    obs, _, _, _, _ = self.get_obs()
-                release_all_locks(self.act_locks)
-
-
 class Agent(mp.Process):
     def __init__(self, agent_id, agent_name, thread_limit, logger, args: Namespace, obs_space, input_structure,
-                 act_space, act_sizes, main_conn, obs_shm, buffer_start, buffer_end, act_shm,
-                 ref_shm, obs_locks, act_locks, ref_locks, use_attention=False, save_dir=None, train=true_func,
-                 num_refs=None, reference_agent=None, data_queue=None, norm_obs=True, norm_reward=True):
+                 act_space, act_sizes, main_conn, obs_shm, buffer_start, buffer_end, obs_start, obs_end, act_shm,
+                 ref_shm, obs_locks, act_locks, ref_locks, i_copy, num_copies, backend='gloo', agent_obs_shm=None,
+                 use_attention=False, save_dir=None, train=true_func, num_refs=None, reference_agent=None,
+                 data_queue=None, norm_obs=True, norm_reward=True):
         super(Agent, self).__init__()
         self.agent_id = agent_id
         self.agent_name = agent_name
@@ -112,7 +40,8 @@ class Agent(mp.Process):
         self.logger = logger
 
         self.args = args
-        self.seed = reseed(args.seed, "agent-{}".format(self.agent_id))
+        self.seed = reseed(args.seed, "agent-{}".format(agent_id) if num_copies == 1 else "copy-{}-agent-{}".
+                           format(i_copy, agent_id))
         self.num_steps = args.num_steps
         self.num_envs = args.num_processes
         self.num_agents = args.num_agents
@@ -120,6 +49,14 @@ class Agent(mp.Process):
         self.num_updates = args.num_env_steps // args.num_steps // args.num_processes
         self.save_interval = args.save_interval
         self.save_dir = mkdir2(save_dir or args.save_dir, str(agent_name))
+
+        self.rank = self.num_agents * i_copy + agent_id
+        self.backend = backend
+        self.i_copy = i_copy
+        self.num_copies = num_copies
+        # self.all_obs = np.frombuffer(obs_shm.buf, dtype=np.float32).reshape(num_copies, self.num_envs, -1)[:, :, obs_start: obs_end]
+        self.all_obs = np.frombuffer(agent_obs_shm.buf, dtype=np.float32).reshape(num_copies, self.num_steps,
+                                                                                  self.num_envs, -1)
 
         self.obs_space = obs_space
         # print(obs_space)
@@ -130,6 +67,8 @@ class Agent(mp.Process):
         self.obs_shm = obs_shm
         self.buffer_start = buffer_start
         self.buffer_end = buffer_end
+        self.obs_start = obs_start
+        self.obs_end = obs_end
         self.act_shm = act_shm
         self.ref_shm = ref_shm
         self.obs_locks = obs_locks
@@ -238,6 +177,17 @@ class Agent(mp.Process):
         if self.thread_limit is not None:
             torch.set_num_threads(self.thread_limit)
 
+        os.environ['MASTER_ADDR'] = '127.0.0.1'
+        os.environ['MASTER_PORT'] = '29500'
+        self.log("{} {} {}".format(self.rank, self.agent_id, self.i_copy))
+        dist.init_process_group(self.backend, rank=self.rank, world_size=self.num_agents * self.num_copies)
+        agent_group = None
+        for j in range(self.num_agents):
+            if j != self.agent_id:
+                dist.new_group([j + i * self.num_agents for i in range(self.num_copies)])
+            else:
+                agent_group = dist.new_group([self.agent_id + i * self.num_agents for i in range(self.num_copies)])
+
         self.obs_rms = RunningMeanStd(shape=self.obs_space.shape)
         self.ret_rms = RunningMeanStd(shape=())
         self.ret = np.zeros(self.num_envs)
@@ -278,7 +228,8 @@ class Agent(mp.Process):
         sample_n_ref = len(ref_agents) * self.num_sym if ref else 0
         # self.log(12312312312)
         actor_critic, agent = get_agent(self.agent_name, self.args, self.obs_space, self.input_structure,
-                                        self.act_space, self.save_dir, n_ref=n_ref, is_ref=False)
+                                        self.act_space, self.save_dir, n_ref=n_ref, is_ref=False,
+                                        agent_group=agent_group)
         # print(self.num_updates)
         likelihood_rms = RunningMeanStd(shape=sample_n_ref)
         reward_prediction_rms = RunningMeanStd(shape=sample_n_ref)
@@ -326,8 +277,9 @@ class Agent(mp.Process):
 
         observations = [[[] for _ in range(num_episodes)] for _ in range(num_envs)]
 
-        statistics = dict(reward=[], grad_norm=[], value_loss=[], action_loss=[], rnd_loss=[], dist_entropy=[], dist_penalty=[],
-                          likelihood=[], total_episodes=[], accepted_episodes=[], efficiency=[], reward_prediction_loss=[])
+        statistics = dict(reward=[], grad_norm=[], value_loss=[], action_loss=[], rnd_loss=[], dist_entropy=[],
+                          dist_penalty=[], likelihood=[], total_episodes=[], accepted_episodes=[], efficiency=[],
+                          reward_prediction_loss=[], dvd_loss=[], pd=[])
         sum_reward = 0.
         sum_dist_penalty = 0.
         actual_use_ref = ref_agents is not None and ref_agents[0] is not None
@@ -401,6 +353,8 @@ class Agent(mp.Process):
             ref_time = 0.
             copy_time = 0.
 
+            in_update_step = 0
+
             while True:
                 total_episodes += num_envs
                 decay = 1.
@@ -417,6 +371,8 @@ class Agent(mp.Process):
                 rollouts.original_obs[0].copy_(original_obs)
                 for step in range(episode_steps):
                     # self.log(step)
+                    self.all_obs[self.i_copy, in_update_step] = rollouts.original_obs[step]
+                    in_update_step += 1
                     with torch.no_grad():
                         value, action, action_log_prob, recurrent_hidden_states = cur_agent.act(
                             rollouts.obs[step], rollouts.recurrent_hidden_states[step],
@@ -713,6 +669,7 @@ class Agent(mp.Process):
                     if remain_episodes <= 0:
                         break
 
+
             self.log("ref time {}, copy time {}".format(ref_time, copy_time))
             ref_time = 0.
             copy_time = 0.
@@ -844,14 +801,20 @@ class Agent(mp.Process):
                 # self.log("ready to update")
                 # valid_rollouts.action_loss_coef = 0.0 if efficiency < 0.1 else 1.0
                 # self.log("before update")
-                value_loss, action_loss, rnd_loss, dist_entropy, grad_norm, reward_prediction_loss = agent.update(valid_rollouts)
+                dist.barrier(agent_group)
+                # print("self.num_copies", self.num_copies)
+                normalized_all_obs = self.normalize_obs(self.all_obs, update=False)  # deep copied
+                normalized_all_obs = normalized_all_obs.reshape((self.num_copies, self.batch_size, -1))
+                value_loss, action_loss, rnd_loss, dist_entropy, grad_norm, reward_prediction_loss, dvd_loss, pd = \
+                    agent.update(valid_rollouts, normalized_all_obs, self.i_copy)
                 update_time = time.time() - st
                 self.log("update time {}".format(update_time))
                 report_data["update_time"] = update_time
-                self.log("Update #{}, reward {}, likelihood {}, value_loss {}, action_loss {}, rnd_loss {}, dist_entropy {}, grad_norm {}, reward_prediction_loss {}"
+                self.log("Update #{}, reward {}, likelihood {}, value_loss {}, action_loss {}, rnd_loss {}, dist_entropy {}, grad_norm {}, reward_prediction_loss {}, dvd_loss {}, pd {}"
                          .format(it, sum_reward / total_episodes,
                                  sum_likelihood / total_episodes,
-                                 value_loss, action_loss, rnd_loss, dist_entropy, grad_norm, reward_prediction_loss))
+                                 value_loss, action_loss, rnd_loss, dist_entropy, grad_norm, reward_prediction_loss,
+                                 dvd_loss, pd))
                 episode_rewards.append(sum_reward / total_episodes)
                 if len(episode_rewards) > 1:
                     self.log("mean/median reward {:.2f}/{:.2f}, min/max reward {:.2f}/{:.2f}".format(
@@ -864,10 +827,14 @@ class Agent(mp.Process):
                 statistics["dist_entropy"].append((it, dist_entropy))
                 statistics["grad_norm"].append((it, grad_norm))
                 statistics["reward_prediction_loss"].append((it, reward_prediction_loss))
+                statistics["dvd_loss"].append((it, dvd_loss))
+                statistics["pd"].append((it, pd))
                 report_data["value_loss"] = value_loss
                 report_data["action_loss"] = action_loss
                 report_data["dist_entropy"] = dist_entropy
                 report_data["grad_norm"] = grad_norm
+                report_data["dvd_loss"] = dvd_loss
+                report_data["pd"] = pd
                 if args.use_reward_predictor:
                     report_data["reward_prediction_loss"] = reward_prediction_loss
                 update_counter += 1

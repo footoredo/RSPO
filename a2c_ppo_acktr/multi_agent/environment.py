@@ -13,14 +13,15 @@ import copy
 
 class Environment(mp.Process):
     def __init__(self, env_id, logger, args: Namespace, env, agents, act_sizes, act_recover_fns, main_conn, obs_shm,
-                 act_shm, obs_locks, act_locks, norm_obs=False):
+                 act_shm, obs_locks, act_locks, obs_buffer_start, i_copy, num_copies, norm_obs=False):
         super(Environment, self).__init__()
 
         self.env_id = env_id
         self.logger = logger
 
         self.args = args
-        self.seed = reseed(args.seed, "env-{}".format(self.env_id))
+        self.seed = reseed(args.seed, "env-{}".format(env_id) if num_copies == 1 else "copy-{}-env-{}".
+                           format(i_copy, env_id))
         self.num_steps = args.num_steps
         self.num_envs = args.num_processes
         self.num_agents = args.num_agents
@@ -48,6 +49,9 @@ class Environment(mp.Process):
         self.obs_rms = dict()
         self.epsilon = 1e-8
         self.clip_obs = 10.
+
+        self.obs_buffer_start = obs_buffer_start
+        self.i_copy = i_copy
 
         self.np_random = np.random.RandomState(seed=self.seed)
 
@@ -120,7 +124,7 @@ class Environment(mp.Process):
 
         obs_places = []
         obs_lens = []
-        offset = 0
+        offset = self.obs_buffer_start
         item_size = np.zeros(1, dtype=self.dtype).nbytes
         actions = dict()
         infos = dict()

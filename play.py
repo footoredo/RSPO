@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--load-step", type=int)
     parser.add_argument("--no-load-refs", action="store_true", default=False)
     parser.add_argument("--num-games-after-training", type=int, default=1)
+    # parser.add_argument("--test-episode-steps", type=int)
     parser.add_argument("--render", action="store_true", default=False)
     parser.add_argument("--gif", action="store_true", default=False)
 
@@ -29,6 +30,8 @@ def main():
     config["save_dir"] = save_dir
     config["play"] = True
     config["use_wandb"] = False
+    config["num_copies"] = 1
+    config["test_episode_steps"] = 512
 
     num_refs = []
     if config["use_reference"]:

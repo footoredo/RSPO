@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian, FixedNormal
+from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian, FixedNormal, FixedCategorical
 from a2c_ppo_acktr.utils import init
 from copy import deepcopy
 import math
@@ -182,6 +182,16 @@ class Policy(nn.Module):
         action_likelihoods = dist.likelihoods(action)
 
         return action_likelihoods
+
+    def get_embedding(self, inputs, rnn_hxs, masks):
+        _, actor_features, _, _ = self.process_base(inputs, rnn_hxs, masks)
+        dist = self.dist(actor_features)
+        if isinstance(dist, FixedNormal):
+            return dist.mode()
+        elif isinstance(dist, FixedCategorical):
+            return dist.probs
+        else:
+            raise NotImplementedError
 
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
         value, actor_features, _, rnn_hxs = self.process_base(inputs, rnn_hxs, masks)

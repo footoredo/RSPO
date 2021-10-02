@@ -43,7 +43,7 @@ def main():
         agents = ["agent_0"]
         keywords = ["reach_cnt", "reach_steps", "total_reach"]
     elif env_name == "hopper" or env_name == "humanoid" or env_name == "walker2d" or \
-            env_name == "ant":
+            env_name == "ant" or env_name == "point":
         agents = ["0"]
         keywords = []
     else:

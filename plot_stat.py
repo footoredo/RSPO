@@ -22,12 +22,14 @@ def plot_full(statistics, max_iter=None):
 
 def plot_agent(statistics):
     plot_agent_statistics(statistics, "reward")
-    plot_agent_statistics(statistics, "dist_entropy")
-    plot_agent_statistics(statistics, "efficiency")
+    # plot_agent_statistics(statistics, "dist_entropy")
+    # plot_agent_statistics(statistics, "efficiency")
     # plot_agent_statistics(statistics, "grad_norm")
     # plot_agent_statistics(statistics, "value_loss")
     plot_agent_statistics(statistics, "likelihood")
     # plot_agent_statistics(statistics, "action_loss")
+    # plot_agent_statistics(statistics, "dvd_loss")
+    # plot_agent_statistics(statistics, "pd")
 
 
 def get_statistics(path, remote):
@@ -73,6 +75,6 @@ def plot_all(path, agent, remote):
 
 
 if __name__ == "__main__":
-    plot_single("./sync-results/stag-hunt-gw-aggressive/find-all-auto/2021-06-03T10:42:56.808212#f356/stage-1/2021-06-03T10:48:36.970749#b1f8",
+    plot_single("./sync-results/walker2d/parallel/2021-08-08T23:36:03.452837#90bb/copy-0",
                 "0", False, max_iter=None)
     # plot_all("./sync-results/escalation-gw/1-prediction-new-2", None, True)

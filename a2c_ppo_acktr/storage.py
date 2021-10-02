@@ -340,7 +340,7 @@ class RolloutStorage(object):
 
                 yield obs_batch, recurrent_hidden_states_batch, actions_batch, value_preds_batch, return_batch, \
                       masks_batch, old_action_log_probs_batch, adv_targ, interpolate_masks_batch, rewards_batch, \
-                      mmds_batch
+                      mmds_batch, indices
 
     def recurrent_generator(self, advantages, num_mini_batch, episode_steps=1):
         assert episode_steps == 1
